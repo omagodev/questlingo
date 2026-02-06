@@ -1,0 +1,333 @@
+import React, { useState, useEffect } from "react";
+import { StorySegment, AudioSettings, WordTranslation } from "../types";
+import Button from "./Button";
+import {
+  playSfx,
+  speakText,
+  stopSpeech,
+  setAmbience,
+} from "../services/audioService";
+import { translateWord, generateSceneImage } from "../services/aiService";
+import WordTranslationModal from "./WordTranslationModal";
+
+interface StoryViewProps {
+  segment: StorySegment;
+  onChoiceSelected: (choice: string) => void;
+  onChallengeRequest: () => void;
+  isChallengeSolved: boolean;
+  isGenerating: boolean;
+  onImageGenerated: (url: string) => void;
+  settings: AudioSettings;
+  userAvatarUrl: string | null;
+}
+
+const StoryView: React.FC<StoryViewProps> = ({
+  segment,
+  onChoiceSelected,
+  onChallengeRequest,
+  isChallengeSolved,
+  isGenerating,
+  onImageGenerated,
+  settings,
+  userAvatarUrl,
+}) => {
+  const [showTranslation, setShowTranslation] = useState(false);
+
+  // Word Translation State
+  const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const [translationData, setTranslationData] =
+    useState<WordTranslation | null>(null);
+  const [modalPos, setModalPos] = useState({ x: 0, y: 0 });
+  const [loadingTranslation, setLoadingTranslation] = useState(false);
+
+  // Image Generation State
+  const [imageSrc, setImageSrc] = useState<string | null>(
+    segment.imageUrl || null,
+  );
+  const [loadingImage, setLoadingImage] = useState(false);
+
+  // Stop speech when component unmounts or segment changes
+  useEffect(() => {
+    return () => stopSpeech();
+  }, [segment]);
+
+  // Trigger Ambience based on mood
+  useEffect(() => {
+    if (segment.mood) {
+      setAmbience(segment.mood);
+    }
+  }, [segment.mood]);
+
+  // Generate Image Effect & Auto-Narration
+  useEffect(() => {
+    // Stop any previous speech before starting new logic
+    stopSpeech();
+
+    // If we already have the image saved in the segment, use it and play audio immediately
+    if (segment.imageUrl) {
+      setImageSrc(segment.imageUrl);
+      // Small delay to allow UI to render the image first
+      setTimeout(() => {
+        speakText(segment.content, settings);
+      }, 500);
+      return;
+    }
+
+    let isMounted = true;
+
+    const fetchImage = async () => {
+      setLoadingImage(true);
+      setImageSrc(null);
+
+      try {
+        // Pass the userAvatarUrl as reference for consistency
+        const b64 = await generateSceneImage(
+          segment.imageKeyword,
+          userAvatarUrl,
+        );
+        if (isMounted) {
+          if (b64) {
+            setImageSrc(b64);
+            onImageGenerated(b64); // Save back to App state
+
+            // AUTO-NARRATION: Triggered right after image success
+            setTimeout(() => {
+              speakText(segment.content, settings);
+            }, 500);
+          } else {
+            // Fallback
+            console.warn("Image generation failed/empty, using fallback");
+            const fallbackUrl = `https://picsum.photos/seed/${segment.imageKeyword}/800/400?grayscale&blur=2`;
+            setImageSrc(fallbackUrl);
+            // Even on fallback, we speak
+            speakText(segment.content, settings);
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setImageSrc(
+            `https://picsum.photos/seed/${segment.imageKeyword}/800/400`,
+          );
+          speakText(segment.content, settings);
+        }
+      } finally {
+        if (isMounted) setLoadingImage(false);
+      }
+    };
+
+    fetchImage();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    segment.imageKeyword,
+    segment.imageUrl,
+    onImageGenerated,
+    userAvatarUrl,
+    segment.content,
+  ]);
+  // Added segment.content to deps to ensure text updates for speech
+
+  const toggleTranslation = () => {
+    playSfx("CLICK");
+    setShowTranslation(!showTranslation);
+  };
+
+  const handleSpeak = (overrideRate?: number) => {
+    speakText(segment.content, settings, overrideRate);
+  };
+
+  const handleWordRightClick = async (e: React.MouseEvent, word: string) => {
+    e.preventDefault();
+    // Only process actual words
+    const cleanWord = word.replace(/[^a-zA-Z0-9'’-]/g, "");
+    if (!cleanWord || cleanWord.length < 2) return;
+
+    playSfx("CLICK");
+    setSelectedWord(cleanWord);
+    setModalPos({ x: e.clientX, y: e.clientY });
+    setLoadingTranslation(true);
+    setTranslationData(null);
+
+    try {
+      const result = await translateWord(cleanWord, segment.content);
+      setTranslationData(result);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingTranslation(false);
+    }
+  };
+
+  // Helper to split text into interactive spans
+  const renderInteractiveText = (text: string) => {
+    // Split by non-word characters but keep them to preserve punctuation/spacing
+    // Using regex capture group to keep delimiters
+    const parts = text.split(/([a-zA-Z0-9'’-]+)/g);
+
+    return parts.map((part, index) => {
+      // If it matches a word pattern, make it interactive
+      if (/[a-zA-Z0-9'’-]+/.test(part)) {
+        return (
+          <span
+            key={index}
+            onContextMenu={(e) => handleWordRightClick(e, part)}
+            className="cursor-help hover:text-quest-primary hover:bg-white/10 rounded px-0.5 transition-colors duration-200"
+            title="Clique direito para traduzir"
+          >
+            {part}
+          </span>
+        );
+      }
+      // Return punctuation/spaces as is
+      return <span key={index}>{part}</span>;
+    });
+  };
+
+  return (
+    <div className="flex flex-col space-y-6 animate-fade-in pb-24">
+      {/* Image Header */}
+      <div className="w-full h-48 md:h-64 rounded-xl overflow-hidden shadow-2xl relative border-2 border-gray-700 group bg-black">
+        {loadingImage ? (
+          <div className="w-full h-full flex flex-col items-center justify-center space-y-2 text-quest-accent animate-pulse">
+            <div className="w-10 h-10 border-4 border-quest-accent border-t-transparent rounded-full animate-spin"></div>
+            <span className="font-retro text-xs uppercase tracking-widest">
+              Generating 32-bit World...
+            </span>
+          </div>
+        ) : (
+          imageSrc && (
+            <img
+              src={imageSrc}
+              alt={segment.imageKeyword}
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90"
+              style={{ imageRendering: "pixelated" }}
+            />
+          )
+        )}
+
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-quest-dark to-transparent h-20 flex items-end p-4">
+          <div className="flex items-center space-x-2 bg-black/50 px-2 py-1 rounded text-gray-300 backdrop-blur-sm border border-gray-600 max-w-full">
+            <span className="text-xs uppercase font-bold whitespace-nowrap">
+              {segment.mood}
+            </span>
+            <span className="text-[10px] opacity-70">|</span>
+            <span
+              className="text-xs truncate max-w-[200px] md:max-w-md"
+              title={segment.imageKeyword}
+            >
+              {segment.imageKeyword}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Story Content */}
+      <div className="bg-quest-card p-6 rounded-xl border border-gray-700 shadow-xl relative">
+        <div className="text-xl md:text-2xl font-serif text-gray-100 leading-relaxed mb-4">
+          {renderInteractiveText(segment.content)}
+        </div>
+
+        {/* Audio Tools */}
+        <div className="flex space-x-3 mb-4 border-b border-gray-700 pb-3">
+          <button
+            onClick={() => handleSpeak()}
+            className="flex items-center space-x-2 bg-blue-900/30 text-blue-300 px-3 py-2 rounded hover:bg-blue-900/50 transition-colors border border-blue-800"
+            title="Ouvir (Normal)"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              className="w-5 h-5"
+            >
+              <path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.805l-.74 2.402a2.72 2.72 0 00.24 2.594c.331.469.863.748 1.438.748h1.66l4.5 4.5c.944.945 2.56.276 2.56-1.06V4.06zM18.515 8.935c.277-.167.625-.098.803.155a6 6 0 010 5.82.562.562 0 01-.803.155.562.562 0 01-.155-.803 4.875 4.875 0 000-4.73.562.562 0 01.155-.803zM19.78 6.822a.562.562 0 01.8.13 8.25 8.25 0 010 10.096.562.562 0 11-.84-.73 7.125 7.125 0 000-8.666.562.562 0 01.04-.83z" />
+            </svg>
+            <span className="text-xs font-bold uppercase">Narrar</span>
+          </button>
+
+          <button
+            onClick={() => handleSpeak(0.7)}
+            className="flex items-center space-x-2 bg-green-900/30 text-green-300 px-3 py-2 rounded hover:bg-green-900/50 transition-colors border border-green-800"
+            title="Ouvir Lento (Fixo)"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 576 512"
+              fill="currentColor"
+              className="w-5 h-5"
+            >
+              <path d="M464 256h-23.7C455.4 230.1 464 200.2 464 168c0-56-39.2-102.5-90.4-113.6C376.6 22 355 0 328 0H184c-27 0-48.6 22-45.6 54.4C87.2 65.5 48 112 48 168c0 32.2 8.6 62.1 23.7 88H48c-26.5 0-48 21.5-48 48s21.5 48 48 48h21.1c-15.1 25.9-23.7 55.8-23.7 88 0 25.6 8 49.6 21.8 70H48c-26.5 0-48 21.5-48 48s21.5 48 48 48h138.5c10.8 0 21.1-4.6 28.3-12.7L256 448h64l41.2 46.3c7.2 8.1 17.5 12.7 28.3 12.7H528c26.5 0 48-21.5 48-48s-21.5-48-48-48zM144 168c0-30.9 25.1-56 56-56h112c30.9 0 56 25.1 56 56s-25.1 56-56 56H200c-30.9 0-56-25.1-56-56zm56 272c-30.9 0-56-25.1-56-56s25.1-56 56-56h112c30.9 0 56 25.1 56 56s-25.1 56-56 56H200z" />
+            </svg>
+            <span className="text-xs font-bold uppercase">Lento</span>
+          </button>
+        </div>
+
+        <button
+          onClick={toggleTranslation}
+          className="text-xs text-quest-primary hover:text-white underline underline-offset-4 mb-2 opacity-70 hover:opacity-100 transition-opacity"
+        >
+          {showTranslation
+            ? "Ocultar Tradução Completa"
+            : "Ver Tradução Completa (Português)"}
+        </button>
+
+        {showTranslation && (
+          <p className="text-gray-400 italic text-sm mt-2 p-3 bg-black/20 rounded border-l-2 border-quest-primary animate-fade-in">
+            {segment.translation}
+          </p>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="space-y-4">
+        {!isChallengeSolved ? (
+          <div className="text-center p-4 bg-yellow-900/20 border border-yellow-700/50 rounded-xl">
+            <p className="text-yellow-200 mb-4 font-retro text-xs md:text-sm">
+              ⚠ Complete o desafio para prosseguir!
+            </p>
+            <Button
+              variant="accent"
+              fullWidth
+              onClick={onChallengeRequest}
+              className="animate-pulse"
+            >
+              ⚔️ Enfrentar Desafio ({segment.challenge.type})
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-green-400 text-center font-retro text-xs mb-2">
+              ✅ Desafio completo! Escolha seu caminho:
+            </p>
+            {segment.choices.map((choice, idx) => (
+              <Button
+                key={idx}
+                variant="primary"
+                fullWidth
+                disabled={isGenerating}
+                onClick={() => onChoiceSelected(choice.intent)}
+              >
+                {isGenerating ? "Escrevendo destino..." : `👉 ${choice.text}`}
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Context Menu Translation Modal */}
+      {selectedWord && (
+        <WordTranslationModal
+          word={selectedWord}
+          data={translationData}
+          isLoading={loadingTranslation}
+          position={modalPos}
+          onClose={() => setSelectedWord(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+export default StoryView;

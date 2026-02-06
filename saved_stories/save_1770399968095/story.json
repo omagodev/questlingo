@@ -1,0 +1,70 @@
+{
+  "id": "save_1770399968095",
+  "date": 1770399968104,
+  "summary": "Lvl 1 • Fantasia Medieval • 06/02/2026",
+  "state": {
+    "isPlaying": true,
+    "isLoading": false,
+    "mode": "História",
+    "history": [],
+    "currentSegment": {
+      "content": "In a small village nestled between tall, misty mountains, a gentle breeze rustles the leaves of ancient trees. A young hero named Elara stands by a sparkling blue river, dreaming of adventures beyond her home. Today, she will take the first step on her journey to become a great warrior.",
+      "translation": "Em uma pequena vila aninhada entre altas montanhas enevoadas, uma brisa suave agita as folhas das antigas árvores. Uma jovem heroína chamada Elara está à beira de um rio azul cintilante, sonhando com aventuras além de sua casa. Hoje, ela dará o primeiro passo em sua jornada para se tornar uma grande guerreira.",
+      "mood": "peaceful",
+      "imageKeyword": "A serene village scene with misty mountains in the background. Elara, a young girl with long brown hair and a simple tunic, stands by a shimmering blue river. Sunlight filters through the trees, casting dappled shadows on the ground, creating a warm and inviting atmosphere.",
+      "choices": [
+        {
+          "text": "Follow the river to explore the forest.",
+          "intent": "Elara will discover new friends in the forest."
+        },
+        {
+          "text": "Go back to the village to gather supplies.",
+          "intent": "Elara will prepare for her journey with essential items."
+        },
+        {
+          "text": "Climb the mountain to see the view.",
+          "intent": "Elara will gain a new perspective on her adventure ahead."
+        },
+        {
+          "text": "Sit and relax by the river.",
+          "intent": "Elara will take a moment to reflect on her choices."
+        }
+      ],
+      "challenge": {
+        "question": "Qual é a forma correta de \"Eu sou um guerreiro\" em inglês?",
+        "options": [
+          "I is a warrior",
+          "I be a warrior",
+          "I am a warrior",
+          "I was a warrior"
+        ],
+        "correctIndex": 2,
+        "explanation": "A forma correta é \"I am a warrior\" porque usamos 'am' com 'I' no presente simples em inglês.",
+        "type": "grammar"
+      },
+      "xpReward": 10,
+      "itemReward": null,
+      "imageUrl": "/saved_stories/save_1770399968095/current_segment.png"
+    },
+    "player": {
+      "name": "Atos",
+      "avatarUrl": "/saved_stories/save_1770399968095/avatar.png",
+      "xp": 0,
+      "level": 1,
+      "streak": 1,
+      "health": 3,
+      "maxHealth": 3,
+      "inventory": []
+    },
+    "theme": "Fantasia Medieval",
+    "difficulty": "Iniciante",
+    "isChallengeActive": false,
+    "challengeSolved": false,
+    "gameOver": false,
+    "settings": {
+      "voiceURI": null,
+      "speechRate": 1,
+      "pitch": 1
+    }
+  }
+}
