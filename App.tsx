@@ -392,9 +392,9 @@ const App: React.FC = () => {
 
       <button
         onClick={() => setIsChatOpen(true)}
-        className="fixed bottom-6 right-6 z-40 bg-quest-primary text-quest-dark p-4 rounded-full shadow-lg border-2 border-blue-400 hover:scale-110 transition-transform flex items-center justify-center"
+        className="fixed bottom-20 right-4 z-40 bg-quest-primary text-quest-dark p-3 md:p-4 rounded-full shadow-lg border-2 border-blue-400 hover:scale-110 transition-transform flex items-center justify-center opacity-80 hover:opacity-100"
       >
-        <span className="font-retro text-xl font-bold">?</span>
+        <span className="font-retro text-lg md:text-xl font-bold">?</span>
       </button>
 
       {gameState.isChallengeActive && gameState.currentSegment && (

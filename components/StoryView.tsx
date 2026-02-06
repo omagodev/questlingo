@@ -5,6 +5,8 @@ import {
   playSfx,
   speakText,
   stopSpeech,
+  pauseSpeech,
+  resumeSpeech,
   setAmbience,
 } from "../services/audioService";
 import { translateWord, generateSceneImage } from "../services/aiService";
@@ -39,6 +41,10 @@ const StoryView: React.FC<StoryViewProps> = ({
     useState<WordTranslation | null>(null);
   const [modalPos, setModalPos] = useState({ x: 0, y: 0 });
   const [loadingTranslation, setLoadingTranslation] = useState(false);
+  const [isTranslationMode, setIsTranslationMode] = useState(false); // New state for mobile toggle
+  const [narrationStatus, setNarrationStatus] = useState<
+    "idle" | "playing" | "paused"
+  >("idle");
 
   // Image Generation State
   const [imageSrc, setImageSrc] = useState<string | null>(
@@ -48,7 +54,10 @@ const StoryView: React.FC<StoryViewProps> = ({
 
   // Stop speech when component unmounts or segment changes
   useEffect(() => {
-    return () => stopSpeech();
+    return () => {
+      stopSpeech();
+      setNarrationStatus("idle");
+    };
   }, [segment]);
 
   // Trigger Ambience based on mood
@@ -68,7 +77,10 @@ const StoryView: React.FC<StoryViewProps> = ({
       setImageSrc(segment.imageUrl);
       // Small delay to allow UI to render the image first
       setTimeout(() => {
-        speakText(segment.content, settings);
+        setNarrationStatus("playing");
+        speakText(segment.content, settings, undefined, () =>
+          setNarrationStatus("idle"),
+        );
       }, 500);
       return;
     }
@@ -92,7 +104,10 @@ const StoryView: React.FC<StoryViewProps> = ({
 
             // AUTO-NARRATION: Triggered right after image success
             setTimeout(() => {
-              speakText(segment.content, settings);
+              setNarrationStatus("playing");
+              speakText(segment.content, settings, undefined, () =>
+                setNarrationStatus("idle"),
+              );
             }, 500);
           } else {
             // Fallback
@@ -135,17 +150,50 @@ const StoryView: React.FC<StoryViewProps> = ({
   };
 
   const handleSpeak = (overrideRate?: number) => {
-    speakText(segment.content, settings, overrideRate);
+    if (overrideRate) {
+      // Slow button always starts fresh
+      setNarrationStatus("playing");
+      speakText(segment.content, settings, overrideRate, () =>
+        setNarrationStatus("idle"),
+      );
+      return;
+    }
+
+    if (narrationStatus === "playing") {
+      pauseSpeech();
+      setNarrationStatus("paused");
+    } else if (narrationStatus === "paused") {
+      resumeSpeech();
+      setNarrationStatus("playing");
+    } else {
+      setNarrationStatus("playing");
+      speakText(segment.content, settings, undefined, () =>
+        setNarrationStatus("idle"),
+      );
+    }
   };
 
-  const handleWordRightClick = async (e: React.MouseEvent, word: string) => {
-    e.preventDefault();
+  // Unified handler for word interaction
+  const handleWordInteraction = async (
+    e: React.MouseEvent,
+    word: string,
+    isContext: boolean,
+  ) => {
+    // If it's a context menu event, prevent default
+    if (isContext) e.preventDefault();
+
+    // If it's a left click (not context) and we are NOT in translation mode, do nothing
+    if (!isContext && !isTranslationMode) return;
+
     // Only process actual words
     const cleanWord = word.replace(/[^a-zA-Z0-9'’-]/g, "");
     if (!cleanWord || cleanWord.length < 2) return;
 
     playSfx("CLICK");
     setSelectedWord(cleanWord);
+
+    // For mobile/touch, we might want to center it or use click position
+    // If it's a tap, clientX/Y works fine.
     setModalPos({ x: e.clientX, y: e.clientY });
     setLoadingTranslation(true);
     setTranslationData(null);
@@ -158,6 +206,14 @@ const StoryView: React.FC<StoryViewProps> = ({
     } finally {
       setLoadingTranslation(false);
     }
+  };
+
+  const handleWordRightClick = (e: React.MouseEvent, word: string) => {
+    handleWordInteraction(e, word, true);
+  };
+
+  const handleWordClick = (e: React.MouseEvent, word: string) => {
+    handleWordInteraction(e, word, false);
   };
 
   // Helper to split text into interactive spans
@@ -173,8 +229,17 @@ const StoryView: React.FC<StoryViewProps> = ({
           <span
             key={index}
             onContextMenu={(e) => handleWordRightClick(e, part)}
-            className="cursor-help hover:text-quest-primary hover:bg-white/10 rounded px-0.5 transition-colors duration-200"
-            title="Clique direito para traduzir"
+            onClick={(e) => handleWordClick(e, part)}
+            className={`cursor-pointer rounded px-0.5 transition-colors duration-200 ${
+              isTranslationMode
+                ? "hover:bg-quest-accent/30 text-quest-accent font-semibold border-b border-dashed border-quest-accent"
+                : "hover:text-quest-primary hover:bg-white/10"
+            }`}
+            title={
+              isTranslationMode
+                ? "Toque para traduzir"
+                : "Clique direito para traduzir"
+            }
           >
             {part}
           </span>
@@ -229,8 +294,8 @@ const StoryView: React.FC<StoryViewProps> = ({
           {renderInteractiveText(segment.content)}
         </div>
 
-        {/* Audio Tools */}
-        <div className="flex space-x-3 mb-4 border-b border-gray-700 pb-3">
+        {/* Audio & Tool Bar */}
+        <div className="flex flex-wrap gap-2 mb-4 border-b border-gray-700 pb-3">
           <button
             onClick={() => handleSpeak()}
             className="flex items-center space-x-2 bg-blue-900/30 text-blue-300 px-3 py-2 rounded hover:bg-blue-900/50 transition-colors border border-blue-800"
@@ -242,9 +307,23 @@ const StoryView: React.FC<StoryViewProps> = ({
               fill="currentColor"
               className="w-5 h-5"
             >
-              <path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.805l-.74 2.402a2.72 2.72 0 00.24 2.594c.331.469.863.748 1.438.748h1.66l4.5 4.5c.944.945 2.56.276 2.56-1.06V4.06zM18.515 8.935c.277-.167.625-.098.803.155a6 6 0 010 5.82.562.562 0 01-.803.155.562.562 0 01-.155-.803 4.875 4.875 0 000-4.73.562.562 0 01.155-.803zM19.78 6.822a.562.562 0 01.8.13 8.25 8.25 0 010 10.096.562.562 0 11-.84-.73 7.125 7.125 0 000-8.666.562.562 0 01.04-.83z" />
+              {narrationStatus === "playing" ? (
+                <path
+                  fillRule="evenodd"
+                  d="M6.75 5.25a.75.75 0 01.75.75v12a.75.75 0 01-1.5 0v-12a.75.75 0 01.75-.75zm9 0a.75.75 0 01.75.75v12a.75.75 0 01-1.5 0v-12a.75.75 0 01.75-.75z"
+                  clipRule="evenodd"
+                />
+              ) : (
+                <path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.805l-.74 2.402a2.72 2.72 0 00.24 2.594c.331.469.863.748 1.438.748h1.66l4.5 4.5c.944.945 2.56.276 2.56-1.06V4.06z" />
+              )}
             </svg>
-            <span className="text-xs font-bold uppercase">Narrar</span>
+            <span className="text-xs font-bold uppercase">
+              {narrationStatus === "playing"
+                ? "Pausar"
+                : narrationStatus === "paused"
+                  ? "Resumir"
+                  : "Narrar"}
+            </span>
           </button>
 
           <button
@@ -260,7 +339,29 @@ const StoryView: React.FC<StoryViewProps> = ({
             >
               <path d="M464 256h-23.7C455.4 230.1 464 200.2 464 168c0-56-39.2-102.5-90.4-113.6C376.6 22 355 0 328 0H184c-27 0-48.6 22-45.6 54.4C87.2 65.5 48 112 48 168c0 32.2 8.6 62.1 23.7 88H48c-26.5 0-48 21.5-48 48s21.5 48 48 48h21.1c-15.1 25.9-23.7 55.8-23.7 88 0 25.6 8 49.6 21.8 70H48c-26.5 0-48 21.5-48 48s21.5 48 48 48h138.5c10.8 0 21.1-4.6 28.3-12.7L256 448h64l41.2 46.3c7.2 8.1 17.5 12.7 28.3 12.7H528c26.5 0 48-21.5 48-48s-21.5-48-48-48zM144 168c0-30.9 25.1-56 56-56h112c30.9 0 56 25.1 56 56s-25.1 56-56 56H200c-30.9 0-56-25.1-56-56zm56 272c-30.9 0-56-25.1-56-56s25.1-56 56-56h112c30.9 0 56 25.1 56 56s-25.1 56-56 56H200z" />
             </svg>
-            <span className="text-xs font-bold uppercase">Lento</span>
+            <span className="text-xs font-bold uppercase hidden sm:inline">
+              Lento
+            </span>
+            <span className="text-xs font-bold uppercase sm:hidden">🐢</span>
+          </button>
+
+          {/* Translation Toggle for Mobile */}
+          <button
+            onClick={() => {
+              playSfx("CLICK");
+              setIsTranslationMode(!isTranslationMode);
+            }}
+            className={`flex items-center space-x-2 px-3 py-2 rounded transition-colors border ${
+              isTranslationMode
+                ? "bg-quest-accent text-quest-dark border-quest-accent font-bold"
+                : "bg-gray-700/50 text-gray-300 border-gray-600 hover:bg-gray-600"
+            }`}
+            title="Ativar modo de tradução por toque"
+          >
+            <span className="text-lg">🔍</span>
+            <span className="text-xs font-bold uppercase hidden sm:inline">
+              {isTranslationMode ? "Traduzindo..." : "Traduzir"}
+            </span>
           </button>
         </div>
 

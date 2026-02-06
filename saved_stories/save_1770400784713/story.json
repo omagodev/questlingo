@@ -1,0 +1,66 @@
+{
+  "id": "save_1770400784713",
+  "date": 1770400784718,
+  "summary": "Lvl 1 • Fantasia Medieval • 06/02/2026",
+  "state": {
+    "isPlaying": true,
+    "isLoading": false,
+    "mode": "História",
+    "history": [],
+    "currentSegment": {
+      "content": "In a quiet village surrounded by tall mountains, you hear whispers of an ancient treasure hidden in a dark forest. As the sun sets, the sky turns orange and purple, casting long shadows that dance among the trees. You feel both excited and a bit scared as you prepare for your adventure.",
+      "translation": "Em uma vila tranquila cercada por altas montanhas, você ouve sussurros sobre um tesouro antigo escondido em uma floresta escura. Enquanto o sol se põe, o céu se torna laranja e roxo, projetando longas sombras que dançam entre as árvores. Você se sente animado e um pouco assustado enquanto se prepara para sua aventura.",
+      "mood": "suspense",
+      "imageKeyword": "A serene village at dusk with tall mountains in the background. The sky is vibrant with orange and purple hues. Villagers can be seen in the distance, and a dark forest looms ominously at the edge of the village. The atmosphere is filled with a mix of excitement and fear.",
+      "choices": [
+        {
+          "text": "Enter the dark forest to search for treasure.",
+          "intent": "You start your adventure in the dark forest."
+        },
+        {
+          "text": "Talk to the villagers about the treasure.",
+          "intent": "You gather information from the villagers before embarking."
+        },
+        {
+          "text": "Stay in the village and prepare for the journey.",
+          "intent": "You gather supplies and rest before heading out."
+        }
+      ],
+      "challenge": {
+        "question": "Qual a tradução de 'ancient treasure'?",
+        "options": [
+          "tesouro antigo",
+          "tesouro novo",
+          "antigo tesouro",
+          "tesouro jovem"
+        ],
+        "correctIndex": 0,
+        "explanation": "A tradução correta de 'ancient treasure' é 'tesouro antigo'.",
+        "type": "vocabulary"
+      },
+      "xpReward": 20,
+      "itemReward": null,
+      "imageUrl": "/saved_stories/save_1770400784713/current_segment.png"
+    },
+    "player": {
+      "name": "Atos",
+      "avatarUrl": "/saved_stories/save_1770400784713/avatar.png",
+      "xp": 0,
+      "level": 1,
+      "streak": 1,
+      "health": 3,
+      "maxHealth": 3,
+      "inventory": []
+    },
+    "theme": "Fantasia Medieval",
+    "difficulty": "Iniciante",
+    "isChallengeActive": false,
+    "challengeSolved": false,
+    "gameOver": false,
+    "settings": {
+      "voiceURI": null,
+      "speechRate": 1,
+      "pitch": 1
+    }
+  }
+}
