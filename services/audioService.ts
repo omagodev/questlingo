@@ -3,6 +3,7 @@ import { SceneMood, AudioSettings } from "../types";
 
 const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
 let audioCtx: AudioContext | null = null;
+let backgroundGain: GainNode | null = null; // Master volume for background sounds
 let ambienceNodes: AudioNode[] = [];
 let musicTimer: number | null = null;
 let currentMood: SceneMood | null = null;
@@ -10,6 +11,12 @@ let currentMood: SceneMood | null = null;
 export const initAudio = () => {
   if (!audioCtx) {
     audioCtx = new AudioContext();
+  }
+  if (!backgroundGain && audioCtx) {
+    backgroundGain = audioCtx.createGain();
+    backgroundGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+    backgroundGain.connect(audioCtx.destination);
+    console.log("Background gain initialized");
   }
   if (audioCtx.state === "suspended") {
     audioCtx.resume().catch((err) => console.error("Audio resume failed", err));
@@ -123,7 +130,11 @@ const playLuteNote = (freq: number, time: number, duration: number = 1.0) => {
   gain.gain.exponentialRampToValueAtTime(0.001, time + duration); // Decay
 
   osc.connect(gain);
-  gain.connect(audioCtx.destination);
+  if (backgroundGain) {
+    gain.connect(backgroundGain);
+  } else {
+    gain.connect(audioCtx.destination);
+  }
 
   osc.start(time);
   osc.stop(time + duration);
@@ -143,7 +154,12 @@ const playBassNote = (freq: number, time: number) => {
   filter.type = "lowpass";
   filter.frequency.value = 400;
 
-  osc.connect(filter).connect(gain).connect(audioCtx.destination);
+  osc.connect(filter).connect(gain);
+  if (backgroundGain) {
+    gain.connect(backgroundGain);
+  } else {
+    gain.connect(audioCtx.destination);
+  }
   osc.start(time);
   osc.stop(time + 0.5);
 };
@@ -290,7 +306,13 @@ export const setAmbience = (mood: SceneMood) => {
   // 1. Start the Background Drone/Noise (Atmosphere)
   const now = audioCtx.currentTime;
   const masterGain = audioCtx.createGain();
-  masterGain.connect(audioCtx.destination);
+
+  if (backgroundGain) {
+    masterGain.connect(backgroundGain);
+  } else {
+    masterGain.connect(audioCtx.destination);
+  }
+
   masterGain.gain.setValueAtTime(0, now);
   masterGain.gain.linearRampToValueAtTime(0.1, now + 2); // Fade in
   ambienceNodes.push(masterGain);
@@ -357,6 +379,17 @@ export const setAmbience = (mood: SceneMood) => {
 
 // --- Text to Speech (TTS) Logic ---
 
+let currentUtterance: SpeechSynthesisUtterance | null = null;
+
+const setBackgroundDucking = (isDucking: boolean) => {
+  if (!audioCtx || !backgroundGain) return;
+  const now = audioCtx.currentTime;
+  const targetGain = isDucking ? 0.25 : 1.0;
+  console.log(`Setting background ducking: ${isDucking} (gain: ${targetGain})`);
+  backgroundGain.gain.cancelScheduledValues(now);
+  backgroundGain.gain.linearRampToValueAtTime(targetGain, now + 0.4);
+};
+
 export const getEnglishVoices = (): SpeechSynthesisVoice[] => {
   if (!("speechSynthesis" in window)) return [];
   const voices = window.speechSynthesis.getVoices();
@@ -375,10 +408,15 @@ export const speakText = (
     return;
   }
 
-  // Cancel any ongoing speech
+  // Cancel any ongoing speech and clear its listeners to avoid state race conditions
+  if (currentUtterance) {
+    currentUtterance.onend = null;
+    currentUtterance.onerror = null;
+  }
   window.speechSynthesis.cancel();
 
   const utterance = new SpeechSynthesisUtterance(text);
+  currentUtterance = utterance;
   const voices = window.speechSynthesis.getVoices();
 
   // Voice Selection Logic
@@ -427,29 +465,44 @@ export const speakText = (
 
   utterance.pitch = 0.9 * userPitch;
 
-  if (onEnd) {
-    utterance.onend = onEnd;
-    utterance.onerror = onEnd; // Also trigger on error to avoid being stuck in "playing" state
-  }
+  utterance.onend = () => {
+    currentUtterance = null;
+    setBackgroundDucking(false);
+    if (onEnd) onEnd();
+  };
+  utterance.onerror = () => {
+    currentUtterance = null;
+    setBackgroundDucking(false);
+    if (onEnd) onEnd();
+  };
 
+  setBackgroundDucking(true);
   window.speechSynthesis.speak(utterance);
 };
 
 export const stopSpeech = () => {
   if ("speechSynthesis" in window) {
+    if (currentUtterance) {
+      currentUtterance.onend = null;
+      currentUtterance.onerror = null;
+      currentUtterance = null;
+    }
     window.speechSynthesis.cancel();
+    setBackgroundDucking(false);
   }
 };
 
 export const pauseSpeech = () => {
   if ("speechSynthesis" in window) {
     window.speechSynthesis.pause();
+    setBackgroundDucking(false);
   }
 };
 
 export const resumeSpeech = () => {
   if ("speechSynthesis" in window) {
     window.speechSynthesis.resume();
+    setBackgroundDucking(true);
   }
 };
 

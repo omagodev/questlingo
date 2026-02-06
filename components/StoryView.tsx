@@ -45,6 +45,9 @@ const StoryView: React.FC<StoryViewProps> = ({
   const [narrationStatus, setNarrationStatus] = useState<
     "idle" | "playing" | "paused"
   >("idle");
+  const [narrationRate, setNarrationRate] = useState<number | undefined>(
+    undefined,
+  );
 
   // Image Generation State
   const [imageSrc, setImageSrc] = useState<string | null>(
@@ -52,11 +55,11 @@ const StoryView: React.FC<StoryViewProps> = ({
   );
   const [loadingImage, setLoadingImage] = useState(false);
 
-  // Stop speech when component unmounts or segment changes
   useEffect(() => {
     return () => {
       stopSpeech();
       setNarrationStatus("idle");
+      setNarrationRate(undefined);
     };
   }, [segment]);
 
@@ -67,6 +70,19 @@ const StoryView: React.FC<StoryViewProps> = ({
     }
   }, [segment.mood]);
 
+  // Sync state with actual speech status periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // If the browser says it's not speaking AND we are in 'playing' state, sync to 'idle'
+      // Note: speechSynthesis.speaking is true even if paused
+      if (!window.speechSynthesis.speaking && narrationStatus !== "idle") {
+        setNarrationStatus("idle");
+        setNarrationRate(undefined);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [narrationStatus]);
+
   // Generate Image Effect & Auto-Narration
   useEffect(() => {
     // Stop any previous speech before starting new logic
@@ -75,12 +91,13 @@ const StoryView: React.FC<StoryViewProps> = ({
     // If we already have the image saved in the segment, use it and play audio immediately
     if (segment.imageUrl) {
       setImageSrc(segment.imageUrl);
-      // Small delay to allow UI to render the image first
       setTimeout(() => {
         setNarrationStatus("playing");
-        speakText(segment.content, settings, undefined, () =>
-          setNarrationStatus("idle"),
-        );
+        setNarrationRate(undefined);
+        speakText(segment.content, settings, undefined, () => {
+          setNarrationStatus("idle");
+          setNarrationRate(undefined);
+        });
       }, 500);
       return;
     }
@@ -105,9 +122,11 @@ const StoryView: React.FC<StoryViewProps> = ({
             // AUTO-NARRATION: Triggered right after image success
             setTimeout(() => {
               setNarrationStatus("playing");
-              speakText(segment.content, settings, undefined, () =>
-                setNarrationStatus("idle"),
-              );
+              setNarrationRate(undefined);
+              speakText(segment.content, settings, undefined, () => {
+                setNarrationStatus("idle");
+                setNarrationRate(undefined);
+              });
             }, 500);
           } else {
             // Fallback
@@ -149,28 +168,27 @@ const StoryView: React.FC<StoryViewProps> = ({
     setShowTranslation(!showTranslation);
   };
 
-  const handleSpeak = (overrideRate?: number) => {
-    if (overrideRate) {
-      // Slow button always starts fresh
-      setNarrationStatus("playing");
-      speakText(segment.content, settings, overrideRate, () =>
-        setNarrationStatus("idle"),
-      );
+  const handleSpeak = (rate?: number) => {
+    // If we're playing or paused at the SAME rate, toggle pause/resume
+    if (narrationStatus !== "idle" && narrationRate === rate) {
+      if (narrationStatus === "playing") {
+        pauseSpeech();
+        setNarrationStatus("paused");
+      } else {
+        resumeSpeech();
+        setNarrationStatus("playing");
+      }
       return;
     }
 
-    if (narrationStatus === "playing") {
-      pauseSpeech();
-      setNarrationStatus("paused");
-    } else if (narrationStatus === "paused") {
-      resumeSpeech();
-      setNarrationStatus("playing");
-    } else {
-      setNarrationStatus("playing");
-      speakText(segment.content, settings, undefined, () =>
-        setNarrationStatus("idle"),
-      );
-    }
+    // If we're idle OR playing/paused at a DIFFERENT rate, start/restart
+    stopSpeech();
+    setNarrationStatus("playing");
+    setNarrationRate(rate);
+    speakText(segment.content, settings, rate, () => {
+      setNarrationStatus("idle");
+      setNarrationRate(undefined);
+    });
   };
 
   // Unified handler for word interaction
@@ -307,7 +325,7 @@ const StoryView: React.FC<StoryViewProps> = ({
               fill="currentColor"
               className="w-5 h-5"
             >
-              {narrationStatus === "playing" ? (
+              {narrationStatus === "playing" && narrationRate === undefined ? (
                 <path
                   fillRule="evenodd"
                   d="M6.75 5.25a.75.75 0 01.75.75v12a.75.75 0 01-1.5 0v-12a.75.75 0 01.75-.75zm9 0a.75.75 0 01.75.75v12a.75.75 0 01-1.5 0v-12a.75.75 0 01.75-.75z"
@@ -318,9 +336,9 @@ const StoryView: React.FC<StoryViewProps> = ({
               )}
             </svg>
             <span className="text-xs font-bold uppercase">
-              {narrationStatus === "playing"
+              {narrationStatus === "playing" && narrationRate === undefined
                 ? "Pausar"
-                : narrationStatus === "paused"
+                : narrationStatus === "paused" && narrationRate === undefined
                   ? "Resumir"
                   : "Narrar"}
             </span>
@@ -328,7 +346,11 @@ const StoryView: React.FC<StoryViewProps> = ({
 
           <button
             onClick={() => handleSpeak(0.7)}
-            className="flex items-center space-x-2 bg-green-900/30 text-green-300 px-3 py-2 rounded hover:bg-green-900/50 transition-colors border border-green-800"
+            className={`flex items-center space-x-2 px-3 py-2 rounded transition-colors border ${
+              narrationRate === 0.7
+                ? "bg-green-700/40 text-green-200 border-green-600"
+                : "bg-green-900/30 text-green-300 border-green-800 hover:bg-green-900/50"
+            }`}
             title="Ouvir Lento (Fixo)"
           >
             <svg
@@ -337,10 +359,22 @@ const StoryView: React.FC<StoryViewProps> = ({
               fill="currentColor"
               className="w-5 h-5"
             >
-              <path d="M464 256h-23.7C455.4 230.1 464 200.2 464 168c0-56-39.2-102.5-90.4-113.6C376.6 22 355 0 328 0H184c-27 0-48.6 22-45.6 54.4C87.2 65.5 48 112 48 168c0 32.2 8.6 62.1 23.7 88H48c-26.5 0-48 21.5-48 48s21.5 48 48 48h21.1c-15.1 25.9-23.7 55.8-23.7 88 0 25.6 8 49.6 21.8 70H48c-26.5 0-48 21.5-48 48s21.5 48 48 48h138.5c10.8 0 21.1-4.6 28.3-12.7L256 448h64l41.2 46.3c7.2 8.1 17.5 12.7 28.3 12.7H528c26.5 0 48-21.5 48-48s-21.5-48-48-48zM144 168c0-30.9 25.1-56 56-56h112c30.9 0 56 25.1 56 56s-25.1 56-56 56H200c-30.9 0-56-25.1-56-56zm56 272c-30.9 0-56-25.1-56-56s25.1-56 56-56h112c30.9 0 56 25.1 56 56s-25.1 56-56 56H200z" />
+              {narrationStatus === "playing" && narrationRate === 0.7 ? (
+                <path
+                  fillRule="evenodd"
+                  d="M6.75 5.25a.75.75 0 01.75.75v12a.75.75 0 01-1.5 0v-12a.75.75 0 01.75-.75zm9 0a.75.75 0 01.75.75v12a.75.75 0 01-1.5 0v-12a.75.75 0 01.75-.75z"
+                  clipRule="evenodd"
+                />
+              ) : (
+                <path d="M464 256h-23.7C455.4 230.1 464 200.2 464 168c0-56-39.2-102.5-90.4-113.6C376.6 22 355 0 328 0H184c-27 0-48.6 22-45.6 54.4C87.2 65.5 48 112 48 168c0 32.2 8.6 62.1 23.7 88H48c-26.5 0-48 21.5-48 48s21.5 48 48 48h21.1c-15.1 25.9-23.7 55.8-23.7 88 0 25.6 8 49.6 21.8 70H48c-26.5 0-48 21.5-48 48s21.5 48 48 48h138.5c10.8 0 21.1-4.6 28.3-12.7L256 448h64l41.2 46.3c7.2 8.1 17.5 12.7 28.3 12.7H528c26.5 0 48-21.5 48-48s-21.5-48-48-48zM144 168c0-30.9 25.1-56 56-56h112c30.9 0 56 25.1 56 56s-25.1 56-56 56H200c-30.9 0-56-25.1-56-56zm56 272c-30.9 0-56-25.1-56-56s25.1-56 56-56h112c30.9 0 56 25.1 56 56s-25.1 56-56 56H200z" />
+              )}
             </svg>
             <span className="text-xs font-bold uppercase hidden sm:inline">
-              Lento
+              {narrationStatus === "playing" && narrationRate === 0.7
+                ? "Pausar"
+                : narrationStatus === "paused" && narrationRate === 0.7
+                  ? "Resumir"
+                  : "Lento"}
             </span>
             <span className="text-xs font-bold uppercase sm:hidden">🐢</span>
           </button>
