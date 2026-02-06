@@ -26,7 +26,7 @@ export interface Challenge {
 
 export interface StoryChoice {
   text: string;
-  intent: string; // Internal hint for the AI about what this choice implies
+  intent: string;
 }
 
 export type SceneMood =
@@ -38,16 +38,16 @@ export type SceneMood =
   | "cyberpunk";
 
 export interface StorySegment {
-  content: string; // English text
-  translation: string; // Portuguese help text
+  content: string;
+  translation: string;
   choices: StoryChoice[];
-  challenge: Challenge; // The challenge required to unlock the NEXT segment
+  challenge: Challenge;
   xpReward: number;
-  itemReward?: string | null; // Optional item reward
-  imageKeyword: string; // Keyword to generate an image
-  imageUrl?: string | null; // Base64 image data persisted
-  audioUrl?: string | null; // Base64 audio data persisted
-  mood: SceneMood; // The atmospheric mood of the scene
+  itemReward?: string | null;
+  imageKeyword: string;
+  imageUrl?: string | null;
+  audioUrl?: string | null;
+  mood: SceneMood;
 }
 
 export interface PlayerState {
@@ -67,11 +67,11 @@ export interface UserProfile {
 }
 
 export interface AudioSettings {
-  voiceURI: string | null; // ID of the specific browser voice
-  speechRate: number; // 0.5 to 2.0
-  pitch: number; // 0.5 to 2.0
-  useAIVoice: boolean; // OpenAI TTS
-  aiVoice: string; // OpenAI voice selection (onyx, alloy, etc)
+  voiceURI: string | null;
+  speechRate: number;
+  pitch: number;
+  useAIVoice: boolean;
+  aiVoice: string;
 }
 
 export interface WordTranslation {
@@ -92,5 +92,5 @@ export interface GameState {
   isChallengeActive: boolean;
   challengeSolved: boolean;
   gameOver: boolean;
-  settings: AudioSettings; // Global settings
+  settings: AudioSettings;
 }
