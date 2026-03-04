@@ -118,6 +118,71 @@ const STORY_SCHEMA = {
   },
 };
 
+// Random creative elements to ensure story variety
+const SETTINGS = [
+  "a crumbling ancient tower",
+  "a bustling underground market",
+  "a frozen lake",
+  "a hidden garden behind a waterfall",
+  "a sky city on floating islands",
+  "a sunken ship graveyard",
+  "a haunted library",
+  "a volcanic forge",
+  "a desert oasis at night",
+  "a crystal cave deep underground",
+  "a cursed swamp",
+  "a clockwork fortress",
+  "a moonlit rooftop",
+  "a carnival of illusions",
+  "a battlefield after the war",
+  "a sacred temple in the clouds",
+  "a pirate harbor at dawn",
+  "an enchanted forest clearing",
+  "a ruined cathedral",
+  "a dragon's lair",
+];
+
+const PROTAGONIST_TRAITS = [
+  "a clever thief with a heart of gold",
+  "a shy healer discovering their power",
+  "a retired warrior seeking redemption",
+  "a curious inventor",
+  "a lost traveler from another world",
+  "a mischievous bard",
+  "a noble knight questioning their oath",
+  "a street orphan with hidden talent",
+  "a scholar decoding ancient runes",
+  "a rebel leader in disguise",
+  "a bounty hunter with a secret past",
+  "a shapeshifter learning to control their gift",
+];
+
+const PLOT_HOOKS = [
+  "a mysterious letter arrives",
+  "a strange creature appears",
+  "an old enemy returns",
+  "a magical artifact is discovered",
+  "a portal opens unexpectedly",
+  "a betrayal is revealed",
+  "a prophecy begins to unfold",
+  "a natural disaster strikes",
+  "a festival turns chaotic",
+  "a forbidden spell is cast",
+  "a long-lost friend sends a signal",
+  "an ancient seal breaks",
+];
+
+const pickRandom = (arr: string[]) =>
+  arr[Math.floor(Math.random() * arr.length)];
+
+const getCreativeSeed = () => {
+  return `Creative Direction (use as inspiration, be creative and original):
+  - Setting: ${pickRandom(SETTINGS)}
+  - Protagonist trait: ${pickRandom(PROTAGONIST_TRAITS)}
+  - Plot hook: ${pickRandom(PLOT_HOOKS)}
+  - Random seed: ${Math.random().toString(36).substring(2, 8)}`;
+};
+
 export const generateStoryStart = async (
   theme: Theme,
   difficulty: Difficulty,
@@ -134,11 +199,14 @@ export const generateStoryStart = async (
     Include a multiple-choice challenge.
     Select a 'mood' that fits the atmosphere.
     Provide a detailed 'imageKeyword' describing the scene visually.
+
+    ${getCreativeSeed()}
   `;
 
   try {
     const completion = await openai.chat.completions.create({
       model: MODEL_NAME,
+      temperature: 1.3,
       messages: [
         {
           role: "system",
@@ -179,11 +247,14 @@ export const generateNextSegment = async (
     ${isFinale ? "CRITICAL: This is the FINAL scene (Step 10). Conclude the story with an epic and satisfying resolution. DO NOT offer any choices (return empty choices array)." : "Proceed with the narrative."}
     Create a NEW challenge relevant to this segment.
     Select a 'mood' and provide an 'imageKeyword'.
+
+    ${getCreativeSeed()}
   `;
 
   try {
     const completion = await openai.chat.completions.create({
       model: MODEL_NAME,
+      temperature: 1.3,
       messages: [
         {
           role: "system",
@@ -222,11 +293,14 @@ export const generateSurvivalSegment = async (
     3. 'choices': Must contain EXACTLY ONE choice: { "text": "Next Wave / Próxima Onda", "intent": "next_wave" }.
     6. 'mood': Must be 'combat' or 'suspense'.
     7. 'imageKeyword': Detailed visual description.
+
+    ${getCreativeSeed()}
   `;
 
   try {
     const completion = await openai.chat.completions.create({
       model: MODEL_NAME,
+      temperature: 1.3,
       messages: [
         {
           role: "system",

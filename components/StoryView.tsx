@@ -11,6 +11,15 @@ import {
 } from "../services/audioService";
 import { translateWord } from "../services/aiService";
 import WordTranslationModal from "./WordTranslationModal";
+import ImageLightbox from "./ImageLightbox";
+
+interface ChapterNavInfo {
+  current: number;
+  total: number;
+  onPrev: () => void;
+  onNext: () => void;
+  onReturn: () => void;
+}
 
 interface StoryViewProps {
   segment: StorySegment;
@@ -18,10 +27,12 @@ interface StoryViewProps {
   onChallengeRequest: () => void;
   isChallengeSolved: boolean;
   isGenerating: boolean;
-  onImageGenerated: (url: string) => void;
+  onImageGenerated?: (url: string) => void;
   onAudioGenerated?: (url: string) => void;
   settings: AudioSettings;
   userAvatarUrl: string | null;
+  isReadOnly?: boolean;
+  chapterNav?: ChapterNavInfo;
 }
 
 const StoryView: React.FC<StoryViewProps> = ({
@@ -31,7 +42,10 @@ const StoryView: React.FC<StoryViewProps> = ({
   isChallengeSolved,
   isGenerating,
   settings,
+  isReadOnly = false,
+  chapterNav,
 }) => {
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
 
   // Word Translation State
@@ -266,14 +280,77 @@ const StoryView: React.FC<StoryViewProps> = ({
 
   return (
     <div className="flex flex-col space-y-6 animate-fade-in pb-24">
+      {/* Chapter Navigation Bar */}
+      {chapterNav && (
+        <div className="flex items-center justify-between bg-quest-card border border-gray-700 rounded-xl px-4 py-3 shadow-lg">
+          <button
+            onClick={chapterNav.onPrev}
+            disabled={chapterNav.current <= 1}
+            className="flex items-center gap-1 text-xs font-retro text-quest-primary disabled:text-gray-600 disabled:cursor-not-allowed hover:text-quest-accent transition-colors"
+          >
+            ◀ Anterior
+          </button>
+          <span className="text-xs font-retro text-gray-300">
+            Capítulo {chapterNav.current} / {chapterNav.total}
+          </span>
+          <button
+            onClick={
+              chapterNav.current < chapterNav.total
+                ? chapterNav.onNext
+                : chapterNav.onReturn
+            }
+            className="flex items-center gap-1 text-xs font-retro text-quest-primary hover:text-quest-accent transition-colors"
+          >
+            {chapterNav.current < chapterNav.total ? (
+              <>Próximo ▶</>
+            ) : (
+              <>Atual ↩</>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Read-only banner */}
+      {isReadOnly && (
+        <div className="flex items-center justify-center gap-2 bg-quest-accent/10 border border-quest-accent/30 rounded-lg px-4 py-2">
+          <span className="text-quest-accent text-xs font-retro">
+            📖 Modo Leitura
+          </span>
+          {chapterNav && (
+            <button
+              onClick={chapterNav.onReturn}
+              className="text-[10px] font-retro text-quest-primary underline underline-offset-2 hover:text-white transition-colors"
+            >
+              Voltar ao capítulo atual
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Image Header */}
-      <div className="w-full h-48 md:h-64 rounded-xl overflow-hidden shadow-2xl relative border-2 border-gray-700 group bg-black">
+      <div
+        className="w-full h-48 md:h-64 rounded-xl overflow-hidden shadow-2xl relative border-2 border-gray-700 group bg-black cursor-pointer"
+        onClick={() => setLightboxSrc(imageSrc)}
+        title="Clique para ver em tela cheia"
+      >
         <img
           src={imageSrc}
           alt={segment.imageKeyword}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90"
           style={{ imageRendering: "pixelated" }}
         />
+
+        {/* Expand icon overlay */}
+        <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity border border-gray-600">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="w-4 h-4 text-white"
+          >
+            <path d="M13.28 7.78l3.22-3.22v2.69a.75.75 0 001.5 0v-4.5a.75.75 0 00-.75-.75h-4.5a.75.75 0 000 1.5h2.69l-3.22 3.22a.75.75 0 001.06 1.06zM2 17.25v-4.5a.75.75 0 011.5 0v2.69l3.22-3.22a.75.75 0 011.06 1.06L4.56 16.5h2.69a.75.75 0 010 1.5h-4.5a.75.75 0 01-.75-.75z" />
+          </svg>
+        </div>
 
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-quest-dark to-transparent h-20 flex items-end p-4">
           <div className="flex items-center space-x-2 bg-black/50 px-2 py-1 rounded text-gray-300 backdrop-blur-sm border border-gray-600 max-w-full">
@@ -400,41 +477,43 @@ const StoryView: React.FC<StoryViewProps> = ({
         )}
       </div>
 
-      {/* Actions */}
-      <div className="space-y-4">
-        {!isChallengeSolved ? (
-          <div className="text-center p-4 bg-yellow-900/20 border border-yellow-700/50 rounded-xl">
-            <p className="text-yellow-200 mb-4 font-retro text-xs md:text-sm">
-              ⚠ Complete o desafio para prosseguir!
-            </p>
-            <Button
-              variant="accent"
-              fullWidth
-              onClick={onChallengeRequest}
-              className="animate-pulse"
-            >
-              ⚔️ Enfrentar Desafio ({segment.challenge.type})
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-green-400 text-center font-retro text-xs mb-2">
-              ✅ Desafio completo! Escolha seu caminho:
-            </p>
-            {segment.choices.map((choice, idx) => (
+      {/* Actions — only show for current (non-read-only) chapter */}
+      {!isReadOnly && (
+        <div className="space-y-4">
+          {!isChallengeSolved ? (
+            <div className="text-center p-4 bg-yellow-900/20 border border-yellow-700/50 rounded-xl">
+              <p className="text-yellow-200 mb-4 font-retro text-xs md:text-sm">
+                ⚠ Complete o desafio para prosseguir!
+              </p>
               <Button
-                key={idx}
-                variant="primary"
+                variant="accent"
                 fullWidth
-                disabled={isGenerating}
-                onClick={() => onChoiceSelected(choice.intent)}
+                onClick={onChallengeRequest}
+                className="animate-pulse"
               >
-                {isGenerating ? "Escrevendo destino..." : `👉 ${choice.text}`}
+                ⚔️ Enfrentar Desafio ({segment.challenge.type})
               </Button>
-            ))}
-          </div>
-        )}
-      </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-green-400 text-center font-retro text-xs mb-2">
+                ✅ Desafio completo! Escolha seu caminho:
+              </p>
+              {segment.choices.map((choice, idx) => (
+                <Button
+                  key={idx}
+                  variant="primary"
+                  fullWidth
+                  disabled={isGenerating}
+                  onClick={() => onChoiceSelected(choice.intent)}
+                >
+                  {isGenerating ? "Escrevendo destino..." : `👉 ${choice.text}`}
+                </Button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Context Menu Translation Modal */}
       {selectedWord && (
@@ -444,6 +523,15 @@ const StoryView: React.FC<StoryViewProps> = ({
           isLoading={loadingTranslation}
           position={modalPos}
           onClose={() => setSelectedWord(null)}
+        />
+      )}
+
+      {/* Image Lightbox */}
+      {lightboxSrc && (
+        <ImageLightbox
+          src={lightboxSrc}
+          alt={segment.imageKeyword}
+          onClose={() => setLightboxSrc(null)}
         />
       )}
     </div>

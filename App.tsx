@@ -19,6 +19,7 @@ import Button from "./components/Button";
 import ChatTutor from "./components/ChatTutor";
 import Journal from "./components/Journal";
 import SettingsModal from "./components/SettingsModal";
+import LoadingScreen from "./components/LoadingScreen";
 
 const INITIAL_PLAYER: PlayerState = {
   name: "",
@@ -60,6 +61,27 @@ const App: React.FC = () => {
   const [isJournalOpen, setIsJournalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isVictory, setIsVictory] = useState(false);
+  const [viewingHistoryIndex, setViewingHistoryIndex] = useState<number | null>(
+    null,
+  );
+
+  // Chapter navigation helpers
+  const totalChapters =
+    gameState.history.length + (gameState.currentSegment ? 1 : 0);
+  const isViewingHistory = viewingHistoryIndex !== null;
+  const viewedSegment = isViewingHistory
+    ? gameState.history[viewingHistoryIndex]
+    : gameState.currentSegment;
+
+  const goToChapter = (index: number) => {
+    if (index >= 0 && index < gameState.history.length) {
+      setViewingHistoryIndex(index);
+    } else {
+      setViewingHistoryIndex(null); // Go to current
+    }
+  };
+
+  const returnToCurrent = () => setViewingHistoryIndex(null);
 
   useEffect(() => {
     try {
@@ -398,20 +420,44 @@ const App: React.FC = () => {
 
       <div className="max-w-3xl mx-auto px-4 pt-4 flex justify-between items-center opacity-60">
         <span className="text-[10px] font-retro text-gray-400 uppercase tracking-widest">
-          Capítulo {gameState.history.length + 1} / 10
+          Capítulo{" "}
+          {isViewingHistory
+            ? viewingHistoryIndex! + 1
+            : gameState.history.length + 1}{" "}
+          / 10
         </span>
-        <div className="w-32 h-1 bg-gray-800 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-quest-primary transition-all duration-1000"
-            style={{ width: `${(gameState.history.length + 1) * 10}%` }}
-          />
+        <div className="flex items-center gap-1">
+          {Array.from({ length: totalChapters }, (_, i) => (
+            <button
+              key={i}
+              onClick={() => goToChapter(i)}
+              className={`w-3 h-3 rounded-sm transition-all duration-300 ${
+                (
+                  isViewingHistory
+                    ? viewingHistoryIndex === i
+                    : i === totalChapters - 1
+                )
+                  ? "bg-quest-primary scale-125"
+                  : i < gameState.history.length
+                    ? "bg-quest-primary/40 hover:bg-quest-primary/70"
+                    : "bg-gray-700"
+              }`}
+              title={`Capítulo ${i + 1}`}
+            />
+          ))}
+          {Array.from({ length: Math.max(0, 10 - totalChapters) }, (_, i) => (
+            <div
+              key={`empty-${i}`}
+              className="w-3 h-3 rounded-sm bg-gray-800"
+            />
+          ))}
         </div>
       </div>
 
       <main className="max-w-3xl mx-auto p-4 md:p-6 mt-4 relative">
-        {gameState.currentSegment && (
+        {viewedSegment && (
           <StoryView
-            segment={gameState.currentSegment}
+            segment={viewedSegment}
             onChoiceSelected={handleChoice}
             onChallengeRequest={() =>
               setGameState((prev) => ({ ...prev, isChallengeActive: true }))
@@ -420,11 +466,34 @@ const App: React.FC = () => {
             isGenerating={gameState.isLoading}
             settings={gameState.settings}
             userAvatarUrl={gameState.player.avatarUrl}
+            isReadOnly={isViewingHistory}
+            chapterNav={
+              gameState.history.length > 0
+                ? {
+                    current: isViewingHistory
+                      ? viewingHistoryIndex! + 1
+                      : totalChapters,
+                    total: totalChapters,
+                    onPrev: () =>
+                      goToChapter(
+                        isViewingHistory
+                          ? viewingHistoryIndex! - 1
+                          : gameState.history.length - 1,
+                      ),
+                    onNext: () =>
+                      goToChapter(
+                        isViewingHistory ? viewingHistoryIndex! + 1 : 0,
+                      ),
+                    onReturn: returnToCurrent,
+                  }
+                : undefined
+            }
           />
         )}
 
         {/* If scene 10 and challenge solved, show special finish button if Gemini returned empty choices */}
-        {gameState.mode === GameMode.STORY &&
+        {!isViewingHistory &&
+          gameState.mode === GameMode.STORY &&
           gameState.history.length === 9 &&
           gameState.challengeSolved &&
           !gameState.isLoading && (
@@ -439,6 +508,9 @@ const App: React.FC = () => {
             </div>
           )}
       </main>
+
+      {/* Loading Screen with mini-game */}
+      {gameState.isLoading && gameState.isPlaying && <LoadingScreen />}
 
       <button
         onClick={() => setIsChatOpen(true)}
