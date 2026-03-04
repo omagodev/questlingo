@@ -61,6 +61,7 @@ const App: React.FC = () => {
   const [isJournalOpen, setIsJournalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isVictory, setIsVictory] = useState(false);
+  const [showLoadingScreen, setShowLoadingScreen] = useState(false);
   const [viewingHistoryIndex, setViewingHistoryIndex] = useState<number | null>(
     null,
   );
@@ -82,6 +83,13 @@ const App: React.FC = () => {
   };
 
   const returnToCurrent = () => setViewingHistoryIndex(null);
+
+  // Show loading screen when isLoading starts
+  useEffect(() => {
+    if (gameState.isLoading && gameState.isPlaying) {
+      setShowLoadingScreen(true);
+    }
+  }, [gameState.isLoading, gameState.isPlaying]);
 
   useEffect(() => {
     try {
@@ -510,7 +518,12 @@ const App: React.FC = () => {
       </main>
 
       {/* Loading Screen with mini-game */}
-      {gameState.isLoading && gameState.isPlaying && <LoadingScreen />}
+      {showLoadingScreen && gameState.isPlaying && (
+        <LoadingScreen
+          isStillLoading={gameState.isLoading}
+          onDismiss={() => setShowLoadingScreen(false)}
+        />
+      )}
 
       <button
         onClick={() => setIsChatOpen(true)}

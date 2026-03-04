@@ -47,6 +47,8 @@ const LOADING_MESSAGES = [
   "🎭 Os personagens entram em cena...",
 ];
 
+const MAX_WORD_TIME = 15; // seconds per word for timer bar
+
 const scrambleWord = (word: string): string => {
   const arr = word.split("");
   for (let i = arr.length - 1; i > 0; i--) {
@@ -54,26 +56,60 @@ const scrambleWord = (word: string): string => {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   const scrambled = arr.join("");
-  // Avoid returning the same word
   return scrambled === word ? scrambleWord(word) : scrambled;
 };
 
-const LoadingScreen: React.FC = () => {
-  const [score, setScore] = useState(0);
+// Scoring: faster = more points. Base 100, minus time penalty
+const calcPoints = (secondsElapsed: number): number => {
+  const base = 100;
+  const penalty = Math.floor(secondsElapsed * 6); // ~6 pts per second
+  return Math.max(10, base - penalty); // Minimum 10 pts
+};
+
+const getRank = (
+  totalPoints: number,
+  wordsCorrect: number,
+): { emoji: string; title: string } => {
+  if (wordsCorrect === 0) return { emoji: "😴", title: "Dorminhoco" };
+  const avg = totalPoints / wordsCorrect;
+  if (avg >= 80) return { emoji: "⚡", title: "Relâmpago!" };
+  if (avg >= 60) return { emoji: "🔥", title: "Rápido!" };
+  if (avg >= 40) return { emoji: "👍", title: "Bom trabalho!" };
+  return { emoji: "🐢", title: "Continue praticando!" };
+};
+
+interface LoadingScreenProps {
+  isStillLoading: boolean;
+  onDismiss: () => void;
+}
+
+const LoadingScreen: React.FC<LoadingScreenProps> = ({
+  isStillLoading,
+  onDismiss,
+}) => {
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [wordsCorrect, setWordsCorrect] = useState(0);
+  const [wordsSkipped, setWordsSkipped] = useState(0);
   const [currentWord, setCurrentWord] = useState(
     () => WORD_BANK[Math.floor(Math.random() * WORD_BANK.length)],
   );
   const [scrambled, setScrambled] = useState("");
   const [guess, setGuess] = useState("");
   const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
+  const [lastPoints, setLastPoints] = useState<number | null>(null);
   const [loadingMsg, setLoadingMsg] = useState(
     () => LOADING_MESSAGES[Math.floor(Math.random() * LOADING_MESSAGES.length)],
   );
   const [particles, setParticles] = useState<
     { id: number; x: number; y: number; char: string }[]
   >([]);
+  const [showResults, setShowResults] = useState(false);
+  const [wordTimer, setWordTimer] = useState(0); // seconds elapsed on current word
+
   const inputRef = useRef<HTMLInputElement>(null);
   const particleIdRef = useRef(0);
+  const wordStartRef = useRef(Date.now());
+  const timerRef = useRef<number | null>(null);
 
   const nextWord = useCallback(() => {
     const word = WORD_BANK[Math.floor(Math.random() * WORD_BANK.length)];
@@ -81,21 +117,45 @@ const LoadingScreen: React.FC = () => {
     setScrambled(scrambleWord(word.en));
     setGuess("");
     setFeedback(null);
+    setLastPoints(null);
+    wordStartRef.current = Date.now();
+    setWordTimer(0);
   }, []);
 
   useEffect(() => {
     setScrambled(scrambleWord(currentWord.en));
+    wordStartRef.current = Date.now();
   }, [currentWord]);
+
+  // Word timer - ticks every 100ms for smooth bar animation
+  useEffect(() => {
+    if (showResults) return;
+    timerRef.current = window.setInterval(() => {
+      const elapsed = (Date.now() - wordStartRef.current) / 1000;
+      setWordTimer(elapsed);
+    }, 100);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [showResults]);
+
+  // When loading finishes, show results
+  useEffect(() => {
+    if (!isStillLoading && !showResults) {
+      setShowResults(true);
+    }
+  }, [isStillLoading, showResults]);
 
   // Rotate loading messages
   useEffect(() => {
+    if (showResults) return;
     const interval = setInterval(() => {
       setLoadingMsg(
         LOADING_MESSAGES[Math.floor(Math.random() * LOADING_MESSAGES.length)],
       );
     }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [showResults]);
 
   // Spawn floating particles
   useEffect(() => {
@@ -115,9 +175,13 @@ const LoadingScreen: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (guess.trim().toLowerCase() === currentWord.en.toLowerCase()) {
+      const elapsed = (Date.now() - wordStartRef.current) / 1000;
+      const pts = calcPoints(elapsed);
       setFeedback("correct");
-      setScore((s) => s + 1);
-      setTimeout(nextWord, 800);
+      setLastPoints(pts);
+      setTotalPoints((s) => s + pts);
+      setWordsCorrect((s) => s + 1);
+      setTimeout(nextWord, 900);
     } else {
       setFeedback("wrong");
       setTimeout(() => setFeedback(null), 600);
@@ -125,9 +189,94 @@ const LoadingScreen: React.FC = () => {
   };
 
   const handleSkip = () => {
+    setWordsSkipped((s) => s + 1);
     nextWord();
   };
 
+  const timerPercent = Math.max(
+    0,
+    Math.min(100, (1 - wordTimer / MAX_WORD_TIME) * 100),
+  );
+  const timerColor =
+    timerPercent > 60
+      ? "bg-quest-success"
+      : timerPercent > 30
+        ? "bg-quest-warning"
+        : "bg-quest-danger";
+
+  // --- RESULTS SCREEN ---
+  if (showResults) {
+    const rank = getRank(totalPoints, wordsCorrect);
+    return (
+      <div className="fixed inset-0 z-50 bg-quest-dark/95 backdrop-blur-md flex flex-col items-center justify-center animate-fade-in">
+        {particles.map((p) => (
+          <span
+            key={p.id}
+            className="absolute text-xl opacity-60 pointer-events-none"
+            style={{
+              left: `${p.x}%`,
+              animation: `floatUp 4s linear forwards`,
+              bottom: `${p.y - 100}%`,
+            }}
+          >
+            {p.char}
+          </span>
+        ))}
+
+        <div className="bg-quest-card border border-gray-700 rounded-2xl p-6 md:p-8 max-w-sm w-full mx-4 shadow-2xl animate-fade-in">
+          <div className="text-center mb-6">
+            <span className="text-5xl mb-2 block">{rank.emoji}</span>
+            <h3 className="text-quest-accent font-retro text-sm uppercase tracking-wider mb-1">
+              {rank.title}
+            </h3>
+            <p className="text-gray-400 text-xs">Resultado do Word Scramble</p>
+          </div>
+
+          <div className="space-y-3 mb-6">
+            <div className="flex justify-between items-center bg-gray-800/60 rounded-lg px-4 py-3 border border-gray-700">
+              <span className="text-gray-300 text-sm">🏆 Pontuação Total</span>
+              <span className="text-quest-primary font-retro text-sm">
+                {totalPoints}
+              </span>
+            </div>
+            <div className="flex justify-between items-center bg-gray-800/60 rounded-lg px-4 py-3 border border-gray-700">
+              <span className="text-gray-300 text-sm">
+                ✅ Palavras Corretas
+              </span>
+              <span className="text-quest-success font-retro text-sm">
+                {wordsCorrect}
+              </span>
+            </div>
+            <div className="flex justify-between items-center bg-gray-800/60 rounded-lg px-4 py-3 border border-gray-700">
+              <span className="text-gray-300 text-sm">⏭️ Palavras Puladas</span>
+              <span className="text-gray-400 font-retro text-sm">
+                {wordsSkipped}
+              </span>
+            </div>
+            {wordsCorrect > 0 && (
+              <div className="flex justify-between items-center bg-gray-800/60 rounded-lg px-4 py-3 border border-gray-700">
+                <span className="text-gray-300 text-sm">
+                  ⚡ Média por Palavra
+                </span>
+                <span className="text-quest-accent font-retro text-sm">
+                  {Math.round(totalPoints / wordsCorrect)} pts
+                </span>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={onDismiss}
+            className="w-full bg-quest-primary text-quest-dark font-bold py-3 rounded-lg hover:brightness-110 transition-all text-sm font-retro tracking-wider"
+          >
+            ▶ Continuar Aventura
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // --- GAME SCREEN ---
   return (
     <div className="fixed inset-0 z-50 bg-quest-dark/95 backdrop-blur-md flex flex-col items-center justify-center animate-fade-in">
       {/* Floating particles */}
@@ -165,13 +314,21 @@ const LoadingScreen: React.FC = () => {
 
       {/* Mini Game */}
       <div className="bg-quest-card border border-gray-700 rounded-2xl p-6 md:p-8 max-w-sm w-full mx-4 shadow-2xl">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-2">
           <h3 className="text-quest-accent font-retro text-[10px] uppercase tracking-wider">
             🎮 Word Scramble
           </h3>
           <span className="text-quest-success font-retro text-[10px]">
-            ⭐ {score}
+            🏆 {totalPoints} pts
           </span>
+        </div>
+
+        {/* Timer bar */}
+        <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden mb-4">
+          <div
+            className={`h-full ${timerColor} transition-all duration-100 rounded-full`}
+            style={{ width: `${timerPercent}%` }}
+          />
         </div>
 
         {/* Scrambled letters */}
@@ -229,16 +386,26 @@ const LoadingScreen: React.FC = () => {
         </form>
 
         {/* Feedback toast */}
-        {feedback === "correct" && (
+        {feedback === "correct" && lastPoints !== null && (
           <p className="text-center text-quest-success font-retro text-[10px] mt-3 animate-fade-in">
-            ✅ Correto! +1 ⭐
+            ✅ +{lastPoints} pts!
           </p>
         )}
+
+        {/* Stats bar */}
+        <div className="flex justify-between mt-3 pt-3 border-t border-gray-700">
+          <span className="text-gray-500 text-[10px]">✅ {wordsCorrect}</span>
+          <span className="text-gray-500 text-[10px]">⏭️ {wordsSkipped}</span>
+          <span className="text-gray-500 text-[10px]">
+            ⚡ {wordsCorrect > 0 ? Math.round(totalPoints / wordsCorrect) : 0}{" "}
+            média
+          </span>
+        </div>
       </div>
 
       {/* Bottom hint */}
       <p className="text-gray-500 text-[10px] mt-6 font-retro tracking-wider">
-        Jogue enquanto a história é gerada!
+        Mais rápido = mais pontos! ⚡
       </p>
     </div>
   );
