@@ -33,6 +33,7 @@ interface StoryViewProps {
   userAvatarUrl: string | null;
   isReadOnly?: boolean;
   chapterNav?: ChapterNavInfo;
+  deferNarration?: boolean;
 }
 
 const StoryView: React.FC<StoryViewProps> = ({
@@ -44,6 +45,7 @@ const StoryView: React.FC<StoryViewProps> = ({
   settings,
   isReadOnly = false,
   chapterNav,
+  deferNarration = false,
 }) => {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
@@ -99,7 +101,7 @@ const StoryView: React.FC<StoryViewProps> = ({
   // Refs for tracking HTML audio so we can pause/resume it
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
 
-  // Auto-Narration
+  // Auto-Narration (deferred while loading screen is visible)
   useEffect(() => {
     // Stop any previous speech before starting new logic
     stopSpeech();
@@ -107,6 +109,9 @@ const StoryView: React.FC<StoryViewProps> = ({
       audioRef.current.pause();
       audioRef.current = null;
     }
+
+    // Don't start narration while loading screen is showing
+    if (deferNarration) return;
 
     if (segment.audioUrl) {
       // Play AI Voice synchronously
@@ -135,7 +140,7 @@ const StoryView: React.FC<StoryViewProps> = ({
         audioRef.current = null;
       }
     };
-  }, [segment, settings]);
+  }, [segment, settings, deferNarration]);
   // Added segment.content to deps to ensure text updates for speech
 
   const toggleTranslation = () => {

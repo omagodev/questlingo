@@ -496,6 +496,7 @@ const App: React.FC = () => {
                   }
                 : undefined
             }
+            deferNarration={showLoadingScreen}
           />
         )}
 

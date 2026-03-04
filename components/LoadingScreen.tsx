@@ -59,11 +59,12 @@ const scrambleWord = (word: string): string => {
   return scrambled === word ? scrambleWord(word) : scrambled;
 };
 
-// Scoring: faster = more points. Base 100, minus time penalty
-const calcPoints = (secondsElapsed: number): number => {
+// Scoring: faster = more points, wrong attempts penalize
+const calcPoints = (secondsElapsed: number, wrongAttempts: number): number => {
   const base = 100;
-  const penalty = Math.floor(secondsElapsed * 6); // ~6 pts per second
-  return Math.max(10, base - penalty); // Minimum 10 pts
+  const timePenalty = Math.floor(secondsElapsed * 6); // ~6 pts per second
+  const wrongPenalty = wrongAttempts * 10; // -10 pts per wrong attempt
+  return Math.max(5, base - timePenalty - wrongPenalty); // Minimum 5 pts
 };
 
 const getRank = (
@@ -90,6 +91,9 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
   const [totalPoints, setTotalPoints] = useState(0);
   const [wordsCorrect, setWordsCorrect] = useState(0);
   const [wordsSkipped, setWordsSkipped] = useState(0);
+  const [totalWrongAttempts, setTotalWrongAttempts] = useState(0);
+  const [wrongOnCurrent, setWrongOnCurrent] = useState(0);
+  const [totalTimeSpent, setTotalTimeSpent] = useState(0); // total seconds across correct answers
   const [currentWord, setCurrentWord] = useState(
     () => WORD_BANK[Math.floor(Math.random() * WORD_BANK.length)],
   );
@@ -118,6 +122,7 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
     setGuess("");
     setFeedback(null);
     setLastPoints(null);
+    setWrongOnCurrent(0);
     wordStartRef.current = Date.now();
     setWordTimer(0);
   }, []);
@@ -176,14 +181,17 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
     e.preventDefault();
     if (guess.trim().toLowerCase() === currentWord.en.toLowerCase()) {
       const elapsed = (Date.now() - wordStartRef.current) / 1000;
-      const pts = calcPoints(elapsed);
+      const pts = calcPoints(elapsed, wrongOnCurrent);
       setFeedback("correct");
       setLastPoints(pts);
       setTotalPoints((s) => s + pts);
       setWordsCorrect((s) => s + 1);
+      setTotalTimeSpent((s) => s + elapsed);
       setTimeout(nextWord, 900);
     } else {
       setFeedback("wrong");
+      setWrongOnCurrent((s) => s + 1);
+      setTotalWrongAttempts((s) => s + 1);
       setTimeout(() => setFeedback(null), 600);
     }
   };
@@ -248,7 +256,24 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
               </span>
             </div>
             <div className="flex justify-between items-center bg-gray-800/60 rounded-lg px-4 py-3 border border-gray-700">
-              <span className="text-gray-300 text-sm">⏭️ Palavras Puladas</span>
+              <span className="text-gray-300 text-sm">
+                ❌ Tentativas Erradas
+              </span>
+              <span className="text-quest-danger font-retro text-sm">
+                {totalWrongAttempts}
+              </span>
+            </div>
+            <div className="flex justify-between items-center bg-gray-800/60 rounded-lg px-4 py-3 border border-gray-700">
+              <span className="text-gray-300 text-sm">⏱️ Tempo Médio</span>
+              <span className="text-quest-accent font-retro text-sm">
+                {wordsCorrect > 0
+                  ? (totalTimeSpent / wordsCorrect).toFixed(1)
+                  : "0.0"}
+                s
+              </span>
+            </div>
+            <div className="flex justify-between items-center bg-gray-800/60 rounded-lg px-4 py-3 border border-gray-700">
+              <span className="text-gray-300 text-sm">⏭️ Puladas</span>
               <span className="text-gray-400 font-retro text-sm">
                 {wordsSkipped}
               </span>
@@ -395,6 +420,7 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
         {/* Stats bar */}
         <div className="flex justify-between mt-3 pt-3 border-t border-gray-700">
           <span className="text-gray-500 text-[10px]">✅ {wordsCorrect}</span>
+          <span className="text-gray-500 text-[10px]">❌ {wrongOnCurrent}</span>
           <span className="text-gray-500 text-[10px]">⏭️ {wordsSkipped}</span>
           <span className="text-gray-500 text-[10px]">
             ⚡ {wordsCorrect > 0 ? Math.round(totalPoints / wordsCorrect) : 0}{" "}
