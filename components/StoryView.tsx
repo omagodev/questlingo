@@ -85,9 +85,10 @@ const StoryView: React.FC<StoryViewProps> = ({
   // Sync state with actual speech status periodically
   useEffect(() => {
     const interval = setInterval(() => {
-      // If the browser says it's not speaking AND we are in 'playing' state, sync to 'idle'
-      // Note: speechSynthesis.speaking is true even if paused
-      if (!window.speechSynthesis.speaking && narrationStatus !== "idle") {
+      // If neither speechSynthesis nor HTML Audio is playing, sync to 'idle'
+      const isSpeechPlaying = window.speechSynthesis.speaking;
+      const isAudioPlaying = audioRef.current && !audioRef.current.paused;
+      if (!isSpeechPlaying && !isAudioPlaying && narrationStatus !== "idle") {
         setNarrationStatus("idle");
         setNarrationRate(undefined);
       }
@@ -143,19 +144,22 @@ const StoryView: React.FC<StoryViewProps> = ({
   };
 
   const handleSpeak = (rate?: number) => {
-    // 1. AI Voice Handling
-    if (settings.useAIVoice) {
-      if (narrationStatus === "playing" && audioRef.current) {
+    // 1. If there's an active HTML Audio element (AI voice or loaded audio), handle it first
+    if (audioRef.current) {
+      if (narrationStatus === "playing") {
         audioRef.current.pause();
         setNarrationStatus("paused");
         return;
       }
-      if (narrationStatus === "paused" && audioRef.current) {
+      if (narrationStatus === "paused") {
         audioRef.current.play();
         setNarrationStatus("playing");
         return;
       }
+    }
 
+    // 2. AI Voice Handling (start new playback)
+    if (settings.useAIVoice) {
       if (narrationStatus === "idle") {
         if (segment.audioUrl) {
           audioRef.current = new Audio(segment.audioUrl);
