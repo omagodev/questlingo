@@ -35,6 +35,8 @@ const DEFAULT_SETTINGS: AudioSettings = {
   voiceURI: null,
   speechRate: 1.0,
   pitch: 1.0,
+  useAIVoice: false,
+  aiVoice: "onyx",
 };
 
 const App: React.FC = () => {
@@ -97,13 +99,19 @@ const App: React.FC = () => {
       settings: prev.settings,
     }));
     playSfx("LEVEL_UP");
+    if (state.id) {
+      window.history.replaceState({}, "", `/?save=${state.id}`);
+    }
   };
 
   const handleSaveGame = async () => {
     playSfx("CLICK");
-    if (await saveGame(gameState)) {
+    const newId = await saveGame(gameState);
+    if (newId) {
       playSfx("SUCCESS");
       alert("Jogo salvo com sucesso!");
+      setGameState((s) => ({ ...s, id: newId }));
+      window.history.replaceState({}, "", `/?save=${newId}`);
     } else {
       alert("Erro ao salvar jogo.");
     }
@@ -126,7 +134,9 @@ const App: React.FC = () => {
       history: [],
       player: INITIAL_PLAYER,
       gameOver: false,
+      id: undefined,
     }));
+    window.history.replaceState({}, "", `/`);
   };
 
   const startGame = async (
@@ -142,14 +152,17 @@ const App: React.FC = () => {
       name: userProfile?.name || "Adventurer",
       avatarUrl: userProfile?.avatarUrl || null,
     };
-    setGameState((prev) => ({
-      ...prev,
+
+    const targetState: GameState = {
+      ...gameState,
       isLoading: true,
       theme,
       difficulty,
       mode,
       player: startingPlayer,
-    }));
+      id: undefined, // Clear ID for new game
+    };
+    setGameState(targetState);
 
     try {
       let startSegment =
@@ -157,30 +170,43 @@ const App: React.FC = () => {
           ? await AI.generateSurvivalSegment(theme, difficulty, 1)
           : await AI.generateStoryStart(theme, difficulty);
 
-      setGameState((prev) => ({
-        ...prev,
+      // --- GENERATE ASSETS SYNCHRONOUSLY ---
+      const b64Image = await AI.generateSceneImage(
+        startSegment.imageKeyword,
+        startingPlayer.avatarUrl,
+      );
+      if (b64Image) startSegment.imageUrl = b64Image;
+
+      if (targetState.settings.useAIVoice) {
+        const b64Audio = await AI.generateSpeech(
+          startSegment.content,
+          targetState.settings.aiVoice as any,
+        );
+        if (b64Audio) startSegment.audioUrl = b64Audio;
+      }
+
+      const finalState: GameState = {
+        ...targetState,
         isPlaying: true,
         isLoading: false,
         currentSegment: startSegment,
         challengeSolved: false,
         gameOver: false,
         history: [],
-      }));
+      };
+
+      setGameState(finalState);
+
+      // Save explicitly and update URL
+      const newId = await saveGame(finalState);
+      if (newId) {
+        setGameState((s) => ({ ...s, id: newId }));
+        window.history.replaceState({}, "", `/?save=${newId}`);
+      }
     } catch (error) {
       alert("Erro ao iniciar aventura.");
       setGameState((prev) => ({ ...prev, isLoading: false }));
     }
-  };
-
-  const handleImageGenerated = (url: string) => {
-    if (!gameState.currentSegment || gameState.currentSegment.imageUrl === url)
-      return;
-    setGameState((prev) => ({
-      ...prev,
-      currentSegment: prev.currentSegment
-        ? { ...prev.currentSegment, imageUrl: url }
-        : null,
-    }));
   };
 
   const handleChoice = async (choiceIntent: string) => {
@@ -194,32 +220,57 @@ const App: React.FC = () => {
       return;
     }
 
-    setGameState((prev) => ({ ...prev, isLoading: true }));
+    const targetState: GameState = { ...gameState, isLoading: true };
+    setGameState(targetState);
 
     try {
-      const currentSceneCount = gameState.history.length + 2; // Next scene number
+      const currentSceneCount = targetState.history.length + 2; // Next scene number
       const nextSegment =
-        gameState.mode === GameMode.SURVIVAL
+        targetState.mode === GameMode.SURVIVAL
           ? await AI.generateSurvivalSegment(
-              gameState.theme,
-              gameState.difficulty,
-              gameState.player.streak + 1,
+              targetState.theme,
+              targetState.difficulty,
+              targetState.player.streak + 1,
             )
           : await AI.generateNextSegment(
-              gameState.currentSegment.content,
+              targetState.currentSegment!.content,
               choiceIntent,
-              gameState.difficulty,
+              targetState.difficulty,
               currentSceneCount,
             );
 
-      setGameState((prev) => ({
-        ...prev,
+      // --- GENERATE ASSETS SYNCHRONOUSLY ---
+      const b64Image = await AI.generateSceneImage(
+        nextSegment.imageKeyword,
+        targetState.player.avatarUrl,
+      );
+      if (b64Image) nextSegment.imageUrl = b64Image;
+
+      if (targetState.settings.useAIVoice) {
+        const b64Audio = await AI.generateSpeech(
+          nextSegment.content,
+          targetState.settings.aiVoice as any,
+        );
+        if (b64Audio) nextSegment.audioUrl = b64Audio;
+      }
+
+      const finalState: GameState = {
+        ...targetState,
         isLoading: false,
-        history: [...prev.history, prev.currentSegment!],
+        history: [...targetState.history, targetState.currentSegment!],
         currentSegment: nextSegment,
         challengeSolved: false,
-      }));
+      };
+
+      setGameState(finalState);
       window.scrollTo({ top: 0, behavior: "smooth" });
+
+      // Save explicitly and update URL
+      const newId = await saveGame(finalState);
+      if (newId) {
+        setGameState((s) => ({ ...s, id: newId }));
+        window.history.replaceState({}, "", `/?save=${newId}`);
+      }
     } catch (error) {
       alert("Erro ao gerar próximo capítulo.");
       setGameState((prev) => ({ ...prev, isLoading: false }));
@@ -367,7 +418,6 @@ const App: React.FC = () => {
             }
             isChallengeSolved={gameState.challengeSolved}
             isGenerating={gameState.isLoading}
-            onImageGenerated={handleImageGenerated}
             settings={gameState.settings}
             userAvatarUrl={gameState.player.avatarUrl}
           />

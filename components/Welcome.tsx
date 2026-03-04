@@ -484,9 +484,21 @@ const Welcome: React.FC<WelcomeProps> = ({
         Aprenda inglês vivendo uma aventura.
       </p>
 
-      <div className="w-full space-y-8 bg-quest-card p-8 rounded-2xl border border-gray-800 shadow-2xl">
-        {saves.length > 0 && !isLoading && (
-          <div className="mb-6 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+      {view === "menu" && (
+        <div className="w-full max-w-md mx-auto flex flex-col gap-6">
+          <Button
+            fullWidth
+            variant="primary"
+            onClick={() => {
+              playSfx("CLICK");
+              setView("newGame");
+            }}
+            className="py-6 text-xl shadow-lg hover:shadow-blue-500/20"
+          >
+            ⚔️ Nova Aventura
+          </Button>
+
+          {saves.length > 0 && !isLoading && (
             <Button
               fullWidth
               variant="accent"
@@ -494,62 +506,124 @@ const Welcome: React.FC<WelcomeProps> = ({
                 playSfx("CLICK");
                 setView("load");
               }}
+              className="py-4 text-lg shadow-lg hover:shadow-purple-500/20"
             >
-              💾 Carregar Aventura ({saves.length})
+              💾 Continuar Jornada ({saves.length})
             </Button>
+          )}
+        </div>
+      )}
+
+      {view === "newGame" && (
+        <div className="w-full max-w-3xl mx-auto flex flex-col gap-6 animate-fade-in">
+          <div className="flex justify-start mb-2">
+            <button
+              onClick={() => setView("menu")}
+              className="text-gray-400 hover:text-white flex items-center gap-2"
+            >
+              <span className="text-xl">←</span> Voltar
+            </button>
           </div>
-        )}
-        <div>
-          <label className="block text-quest-accent font-bold mb-3 font-retro text-sm uppercase">
-            Cenário
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            {Object.values(Theme).map((t) => (
-              <button
-                key={t}
-                onClick={() => handleThemeSelect(t)}
-                className={`p-3 rounded-lg text-sm border-2 ${theme === t ? "border-quest-primary bg-blue-900/30 text-white" : "border-gray-700 text-gray-400"}`}
-              >
-                {t}
-              </button>
-            ))}
+          <div className="bg-quest-card p-6 md:p-8 rounded-2xl border border-gray-800 shadow-2xl flex flex-col gap-8">
+            <div className="flex items-center gap-4">
+              <div className="h-px bg-gray-700 flex-1"></div>
+              <h2 className="text-sm font-retro text-gray-400 uppercase tracking-widest">
+                Nova Aventura
+              </h2>
+              <div className="h-px bg-gray-700 flex-1"></div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-quest-accent font-bold mb-3 font-retro text-sm uppercase">
+                    🌍 Cenário
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.values(Theme).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => handleThemeSelect(t)}
+                        className={`p-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center min-h-[48px] ${
+                          theme === t
+                            ? "border-2 border-quest-primary bg-blue-900/40 text-white shadow-[0_0_10px_rgba(59,130,246,0.3)]"
+                            : "border border-gray-800 bg-gray-900/50 text-gray-400 hover:bg-gray-800 hover:border-gray-600"
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-quest-success font-bold mb-3 font-retro text-sm uppercase">
+                    ⭐ Nível de Inglês
+                  </label>
+                  <div className="flex flex-col gap-2">
+                    {Object.values(Difficulty).map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => handleDiffSelect(d)}
+                        className={`flex-1 p-2 rounded-lg text-xs font-bold transition-all min-h-[40px] ${
+                          diff === d
+                            ? "border-2 border-quest-success bg-green-900/40 text-white shadow-[0_0_10px_rgba(34,197,94,0.3)]"
+                            : "border border-gray-800 bg-gray-900/50 text-gray-400 hover:bg-gray-800 hover:border-gray-600"
+                        }`}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col justify-center gap-4 bg-gray-900/40 p-6 rounded-xl border border-gray-800/50">
+                <div className="text-center mb-4">
+                  <h3 className="text-white font-retro text-lg mb-1">
+                    Modo de Jogo
+                  </h3>
+                  <p className="text-xs text-gray-400">Escolha o seu desafio</p>
+                </div>
+
+                <Button
+                  fullWidth
+                  variant="primary"
+                  onClick={() => handleStart(GameMode.STORY)}
+                  disabled={isLoading}
+                  className="py-4 shadow-lg hover:shadow-blue-500/20"
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-base">
+                      {isLoading ? "Gerando..." : "📖 História Guiada"}
+                    </span>
+                    <span className="text-[10px] text-blue-200 font-normal normal-case opacity-80">
+                      Narrativa rica com escolhas
+                    </span>
+                  </div>
+                </Button>
+
+                <Button
+                  fullWidth
+                  variant="danger"
+                  onClick={() => handleStart(GameMode.SURVIVAL)}
+                  disabled={isLoading}
+                  className="py-4 shadow-lg hover:shadow-red-500/20"
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-base">
+                      {isLoading ? "Preparando..." : "💀 Modo Sobrevivência"}
+                    </span>
+                    <span className="text-[10px] text-red-200 font-normal normal-case opacity-80">
+                      Teste rápido de vocabulário
+                    </span>
+                  </div>
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
-        <div>
-          <label className="block text-quest-success font-bold mb-3 font-retro text-sm uppercase">
-            Nível
-          </label>
-          <div className="flex gap-3">
-            {Object.values(Difficulty).map((d) => (
-              <button
-                key={d}
-                onClick={() => handleDiffSelect(d)}
-                className={`flex-1 p-3 rounded-lg text-sm border-2 ${diff === d ? "border-quest-success bg-green-900/30 text-white" : "border-gray-700 text-gray-400"}`}
-              >
-                {d}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex flex-col gap-4">
-          <Button
-            fullWidth
-            variant="primary"
-            onClick={() => handleStart(GameMode.STORY)}
-            disabled={isLoading}
-          >
-            {isLoading ? "Gerando Mundo..." : "Iniciar História 📖"}
-          </Button>
-          <Button
-            fullWidth
-            variant="danger"
-            onClick={() => handleStart(GameMode.SURVIVAL)}
-            disabled={isLoading}
-          >
-            {isLoading ? "Preparando..." : "Sobrevivência 💀"}
-          </Button>
-        </div>
-      </div>
+      )}
     </div>
   );
 };

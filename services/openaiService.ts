@@ -372,3 +372,38 @@ export const generateAvatar = async (
     return null;
   }
 };
+
+export const generateSpeech = async (
+  text: string,
+  voice: "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer" = "onyx",
+): Promise<string | null> => {
+  try {
+    const response = await openai.audio.speech.create({
+      model: "tts-1",
+      voice: voice,
+      input: text,
+      response_format: "mp3",
+    });
+
+    const buffer = await response.arrayBuffer();
+
+    // Proper way to convert ArrayBuffer to Base64 in Browser/Node
+    const base64 = (() => {
+      let binary = "";
+      const bytes = new Uint8Array(buffer);
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(
+          null,
+          Array.from(bytes.subarray(i, i + chunk)),
+        );
+      }
+      return btoa(binary);
+    })();
+
+    return `data:audio/mp3;base64,${base64}`;
+  } catch (error) {
+    console.error("OpenAI TTS Error:", error);
+    return null;
+  }
+};

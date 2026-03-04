@@ -18,7 +18,7 @@ export const getSaves = async (): Promise<SaveSlot[]> => {
   }
 };
 
-export const saveGame = async (state: GameState): Promise<boolean> => {
+export const saveGame = async (state: GameState): Promise<string | null> => {
   try {
     const response = await fetch("/api/stories", {
       method: "POST",
@@ -29,10 +29,11 @@ export const saveGame = async (state: GameState): Promise<boolean> => {
     });
 
     if (!response.ok) throw new Error("Failed to save game");
-    return true;
+    const data = await response.json();
+    return data.id; // Returns the storyId generated or kept by backend
   } catch (e) {
     console.error("Error saving game", e);
-    return false;
+    return null;
   }
 };
 

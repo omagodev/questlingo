@@ -1,0 +1,74 @@
+{
+  "id": "save_1772657078323",
+  "date": 1772657078336,
+  "summary": "Lvl 1 • Fantasia Medieval • 04/03/2026",
+  "state": {
+    "isPlaying": true,
+    "isLoading": false,
+    "mode": "História",
+    "history": [],
+    "currentSegment": {
+      "content": "In a small village called Eldoria, people gather around a glowing bonfire. The stars shine brightly in the sky, and a gentle breeze whispers through the trees. Suddenly, a mysterious figure appears, cloaked in shadows, and everyone around the fire gasps in surprise!",
+      "translation": "Em uma pequena vila chamada Eldoria, as pessoas se reúnem em torno de uma fogueira brilhante. As estrelas brilham intensamente no céu, e uma brisa suave sussurra através das árvores. De repente, uma figura misteriosa aparece, vestida em sombras, e todos ao redor da fogueira gaspam de surpresa!",
+      "mood": "suspense",
+      "imageKeyword": "A cozy village scene under a starlit sky, with a large bonfire in the center. Villagers, dressed in rustic clothing, sit around the fire, looking surprised. In the background, dark trees loom, and a shadowy figure stands partially hidden, creating a sense of mystery and intrigue.",
+      "choices": [
+        {
+          "text": "Approach the mysterious figure cautiously.",
+          "intent": "The character decides to investigate the figure further."
+        },
+        {
+          "text": "Stay with the villagers and hide behind the fire.",
+          "intent": "The character chooses to remain safe with others."
+        },
+        {
+          "text": "Run away from the scene quickly.",
+          "intent": "The character decides to escape the unknown danger."
+        },
+        {
+          "text": "Call out to the figure to ask who they are.",
+          "intent": "The character bravely confronts the mystery head-on."
+        }
+      ],
+      "challenge": {
+        "question": "Qual é a tradução de 'mysterious figure' em português?",
+        "options": [
+          "Figura misteriosa",
+          "Figura clara",
+          "Figura feliz",
+          "Figura triste"
+        ],
+        "correctIndex": 0,
+        "explanation": "A tradução correta de 'mysterious figure' é 'Figura misteriosa' porque 'misteriosa' significa que algo é enigmático ou desconhecido.",
+        "type": "vocabulary"
+      },
+      "xpReward": 20,
+      "itemReward": null,
+      "imageUrl": "/saved_stories/save_1772657078323/current_segment.png",
+      "audioUrl": "/saved_stories/save_1772657078323/current_segment.mp3"
+    },
+    "player": {
+      "name": "Atos",
+      "avatarUrl": "/saved_stories/save_1772657078323/avatar.png",
+      "xp": 0,
+      "level": 1,
+      "streak": 1,
+      "health": 3,
+      "maxHealth": 3,
+      "inventory": []
+    },
+    "theme": "Fantasia Medieval",
+    "difficulty": "Iniciante",
+    "isChallengeActive": false,
+    "challengeSolved": false,
+    "gameOver": false,
+    "settings": {
+      "voiceURI": "Google UK English Female",
+      "speechRate": 1,
+      "pitch": 1.5,
+      "useAIVoice": true,
+      "aiVoice": "nova"
+    },
+    "id": "save_1772657078323"
+  }
+}

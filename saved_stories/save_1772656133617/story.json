@@ -1,0 +1,65 @@
+{
+  "id": "save_1772656133617",
+  "date": 1772656185376,
+  "summary": "Lvl 1 • Fantasia Medieval • 04/03/2026",
+  "state": {
+    "isPlaying": true,
+    "isLoading": false,
+    "mode": "História",
+    "history": [],
+    "currentSegment": {
+      "content": "In a small village, a bright sunrise wakes everyone up. Birds sing in the trees as the villagers start their day. A brave young knight named Arthur decides to leave the village to find a magical sword.",
+      "translation": "Em uma pequena aldeia, um belo nascer do sol acorda todos. Pássaros cantam nas árvores enquanto os aldeões começam seu dia. Um jovem cavaleiro corajoso chamado Arthur decide deixar a aldeia para encontrar uma espada mágica.",
+      "mood": "magical",
+      "imageKeyword": "The scene shows a small medieval village at sunrise, with golden light spreading across thatched-roof cottages. Birds are flying above and trees are lush and green. In the center, a young knight in shiny armor, holding a small map, looks determined as he stands at the village edge, ready to embark on his adventure.",
+      "choices": [
+        {
+          "text": "Arthur should gather supplies before leaving.",
+          "intent": "This choice leads to Arthur collecting food and tools for his journey."
+        },
+        {
+          "text": "Arthur should leave immediately.",
+          "intent": "This choice leads to Arthur starting his journey without any supplies."
+        }
+      ],
+      "challenge": {
+        "question": "Qual é o sinônimo de 'brave' em inglês?",
+        "options": [
+          "nice",
+          "cowardly",
+          "fearless",
+          "angry"
+        ],
+        "correctIndex": 2,
+        "explanation": "A palavra 'brave' significa 'corajoso' e o sinônimo mais próximo em inglês é 'fearless'.",
+        "type": "vocabulary"
+      },
+      "xpReward": 20,
+      "itemReward": null,
+      "imageUrl": "/saved_stories/save_1772656133617/current_segment.png"
+    },
+    "player": {
+      "name": "Atos",
+      "avatarUrl": "/saved_stories/save_1772656133617/avatar.png",
+      "xp": 0,
+      "level": 1,
+      "streak": 1,
+      "health": 3,
+      "maxHealth": 3,
+      "inventory": []
+    },
+    "theme": "Fantasia Medieval",
+    "difficulty": "Iniciante",
+    "isChallengeActive": false,
+    "challengeSolved": false,
+    "gameOver": false,
+    "settings": {
+      "voiceURI": "Google UK English Female",
+      "speechRate": 1,
+      "pitch": 1.5,
+      "useAIVoice": true,
+      "aiVoice": "nova"
+    },
+    "id": "save_1772656133617"
+  }
+}

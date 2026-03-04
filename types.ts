@@ -81,6 +81,7 @@ export interface WordTranslation {
 }
 
 export interface GameState {
+  id?: string;
   isPlaying: boolean;
   isLoading: boolean;
   mode: GameMode;

@@ -9,7 +9,7 @@ import {
   resumeSpeech,
   setAmbience,
 } from "../services/audioService";
-import { translateWord, generateSceneImage } from "../services/aiService";
+import { translateWord } from "../services/aiService";
 import WordTranslationModal from "./WordTranslationModal";
 
 interface StoryViewProps {
@@ -19,6 +19,7 @@ interface StoryViewProps {
   isChallengeSolved: boolean;
   isGenerating: boolean;
   onImageGenerated: (url: string) => void;
+  onAudioGenerated?: (url: string) => void;
   settings: AudioSettings;
   userAvatarUrl: string | null;
 }
@@ -29,9 +30,7 @@ const StoryView: React.FC<StoryViewProps> = ({
   onChallengeRequest,
   isChallengeSolved,
   isGenerating,
-  onImageGenerated,
   settings,
-  userAvatarUrl,
 }) => {
   const [showTranslation, setShowTranslation] = useState(false);
 
@@ -49,11 +48,10 @@ const StoryView: React.FC<StoryViewProps> = ({
     undefined,
   );
 
-  // Image Generation State
-  const [imageSrc, setImageSrc] = useState<string | null>(
-    segment.imageUrl || null,
-  );
-  const [loadingImage, setLoadingImage] = useState(false);
+  // Fallback image if generation failed or is missing
+  const imageSrc =
+    segment.imageUrl ||
+    `https://picsum.photos/seed/${segment.imageKeyword}/800/400?grayscale&blur=2`;
 
   useEffect(() => {
     return () => {
@@ -83,84 +81,46 @@ const StoryView: React.FC<StoryViewProps> = ({
     return () => clearInterval(interval);
   }, [narrationStatus]);
 
-  // Generate Image Effect & Auto-Narration
+  // Refs for tracking HTML audio so we can pause/resume it
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+
+  // Auto-Narration
   useEffect(() => {
     // Stop any previous speech before starting new logic
     stopSpeech();
-
-    // If we already have the image saved in the segment, use it and play audio immediately
-    if (segment.imageUrl) {
-      setImageSrc(segment.imageUrl);
-      setTimeout(() => {
-        setNarrationStatus("playing");
-        setNarrationRate(undefined);
-        speakText(segment.content, settings, undefined, () => {
-          setNarrationStatus("idle");
-          setNarrationRate(undefined);
-        });
-      }, 500);
-      return;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
     }
 
-    let isMounted = true;
-
-    const fetchImage = async () => {
-      setLoadingImage(true);
-      setImageSrc(null);
-
-      try {
-        // Pass the userAvatarUrl as reference for consistency
-        const b64 = await generateSceneImage(
-          segment.imageKeyword,
-          userAvatarUrl,
-        );
-        if (isMounted) {
-          if (b64) {
-            setImageSrc(b64);
-            onImageGenerated(b64); // Save back to App state
-
-            // AUTO-NARRATION: Triggered right after image success
-            setTimeout(() => {
-              setNarrationStatus("playing");
-              setNarrationRate(undefined);
-              speakText(segment.content, settings, undefined, () => {
-                setNarrationStatus("idle");
-                setNarrationRate(undefined);
-              });
-            }, 500);
-          } else {
-            // Fallback
-            console.warn("Image generation failed/empty, using fallback");
-            const fallbackUrl = `https://picsum.photos/seed/${segment.imageKeyword}/800/400?grayscale&blur=2`;
-            setImageSrc(fallbackUrl);
-            // Even on fallback, we speak
-            speakText(segment.content, settings);
-          }
-        }
-      } catch (err) {
-        if (isMounted) {
-          setImageSrc(
-            `https://picsum.photos/seed/${segment.imageKeyword}/800/400`,
-          );
-          speakText(segment.content, settings);
-        }
-      } finally {
-        if (isMounted) setLoadingImage(false);
-      }
-    };
-
-    fetchImage();
+    if (segment.audioUrl) {
+      // Play AI Voice synchronously
+      const audio = new Audio(segment.audioUrl);
+      audioRef.current = audio;
+      setNarrationStatus("playing");
+      audio.onended = () => {
+        setNarrationStatus("idle");
+        audioRef.current = null;
+      };
+      audio.play().catch((e) => console.error("Error playing saved audio", e));
+    } else if (!settings.useAIVoice) {
+      // Play Web Speech API fallback
+      setNarrationStatus("playing");
+      setNarrationRate(undefined);
+      speakText(segment.content, settings, undefined, () => {
+        setNarrationStatus("idle");
+        setNarrationRate(undefined);
+      });
+    }
 
     return () => {
-      isMounted = false;
+      stopSpeech();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
     };
-  }, [
-    segment.imageKeyword,
-    segment.imageUrl,
-    onImageGenerated,
-    userAvatarUrl,
-    segment.content,
-  ]);
+  }, [segment, settings]);
   // Added segment.content to deps to ensure text updates for speech
 
   const toggleTranslation = () => {
@@ -169,6 +129,42 @@ const StoryView: React.FC<StoryViewProps> = ({
   };
 
   const handleSpeak = (rate?: number) => {
+    // 1. AI Voice Handling
+    if (settings.useAIVoice) {
+      if (narrationStatus === "playing" && audioRef.current) {
+        audioRef.current.pause();
+        setNarrationStatus("paused");
+        return;
+      }
+      if (narrationStatus === "paused" && audioRef.current) {
+        audioRef.current.play();
+        setNarrationStatus("playing");
+        return;
+      }
+
+      if (narrationStatus === "idle") {
+        if (segment.audioUrl) {
+          audioRef.current = new Audio(segment.audioUrl);
+          setNarrationStatus("playing");
+          audioRef.current.onended = () => {
+            setNarrationStatus("idle");
+            audioRef.current = null;
+          };
+          audioRef.current.play().catch((e) => console.error(e));
+        } else {
+          // Fallback to web speech if no AI audio was generated previously
+          setNarrationStatus("playing");
+          setNarrationRate(rate);
+          speakText(segment.content, settings, rate, () => {
+            setNarrationStatus("idle");
+            setNarrationRate(undefined);
+          });
+        }
+      }
+      return;
+    }
+
+    // 2. Web Speech API Handling
     // If we're playing or paused at the SAME rate, toggle pause/resume
     if (narrationStatus !== "idle" && narrationRate === rate) {
       if (narrationStatus === "playing") {
@@ -272,23 +268,12 @@ const StoryView: React.FC<StoryViewProps> = ({
     <div className="flex flex-col space-y-6 animate-fade-in pb-24">
       {/* Image Header */}
       <div className="w-full h-48 md:h-64 rounded-xl overflow-hidden shadow-2xl relative border-2 border-gray-700 group bg-black">
-        {loadingImage ? (
-          <div className="w-full h-full flex flex-col items-center justify-center space-y-2 text-quest-accent animate-pulse">
-            <div className="w-10 h-10 border-4 border-quest-accent border-t-transparent rounded-full animate-spin"></div>
-            <span className="font-retro text-xs uppercase tracking-widest">
-              Generating 32-bit World...
-            </span>
-          </div>
-        ) : (
-          imageSrc && (
-            <img
-              src={imageSrc}
-              alt={segment.imageKeyword}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90"
-              style={{ imageRendering: "pixelated" }}
-            />
-          )
-        )}
+        <img
+          src={imageSrc}
+          alt={segment.imageKeyword}
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90"
+          style={{ imageRendering: "pixelated" }}
+        />
 
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-quest-dark to-transparent h-20 flex items-end p-4">
           <div className="flex items-center space-x-2 bg-black/50 px-2 py-1 rounded text-gray-300 backdrop-blur-sm border border-gray-600 max-w-full">

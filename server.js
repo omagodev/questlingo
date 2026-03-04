@@ -23,10 +23,15 @@ if (!fs.existsSync(SAVES_DIR)) {
 // Serve static files from the saves directory
 app.use("/saved_stories", express.static(SAVES_DIR));
 
-// Helper to save base64 image to disk
-const saveBase64Image = (base64String, folderPath, fileName) => {
-  const matches = base64String.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+// Helper to save base64 media to disk
+const saveBase64Media = (base64String, folderPath, fileName) => {
+  if (!base64String) return null;
+  const matches = base64String.match(/^data:([A-Za-z0-9-+\/.]+);base64,(.+)$/);
   if (!matches || matches.length !== 3) {
+    console.error(
+      `Failed to match base64 for ${fileName}. Header:`,
+      base64String.substring(0, 50),
+    );
     return null;
   }
   const buffer = Buffer.from(matches[2], "base64");
@@ -39,8 +44,9 @@ const saveBase64Image = (base64String, folderPath, fileName) => {
 app.post("/api/stories", (req, res) => {
   try {
     const gameState = req.body;
-    const storyId = `save_${Date.now()}`;
+    const storyId = gameState.id || `save_${Date.now()}`;
     const storyDir = path.join(SAVES_DIR, storyId);
+    gameState.id = storyId; // Append ID so it persists in the JSON
 
     if (!fs.existsSync(storyDir)) {
       fs.mkdirSync(storyDir);
@@ -51,7 +57,7 @@ app.post("/api/stories", (req, res) => {
       gameState.player.avatarUrl &&
       gameState.player.avatarUrl.startsWith("data:")
     ) {
-      const fileName = saveBase64Image(
+      const fileName = saveBase64Media(
         gameState.player.avatarUrl,
         storyDir,
         "avatar.png",
@@ -61,11 +67,11 @@ app.post("/api/stories", (req, res) => {
       }
     }
 
-    // Process history images
+    // Process history segments (images and audio)
     if (gameState.history) {
       gameState.history = gameState.history.map((segment, index) => {
         if (segment.imageUrl && segment.imageUrl.startsWith("data:")) {
-          const fileName = saveBase64Image(
+          const fileName = saveBase64Media(
             segment.imageUrl,
             storyDir,
             `segment_${index}.png`,
@@ -74,23 +80,50 @@ app.post("/api/stories", (req, res) => {
             segment.imageUrl = `/saved_stories/${storyId}/${fileName}`;
           }
         }
+
+        if (segment.audioUrl && segment.audioUrl.startsWith("data:")) {
+          const fileName = saveBase64Media(
+            segment.audioUrl,
+            storyDir,
+            `segment_${index}.mp3`,
+          );
+          if (fileName) {
+            segment.audioUrl = `/saved_stories/${storyId}/${fileName}`;
+          }
+        }
+
         return segment;
       });
     }
 
-    // Process current segment image
-    if (
-      gameState.currentSegment &&
-      gameState.currentSegment.imageUrl &&
-      gameState.currentSegment.imageUrl.startsWith("data:")
-    ) {
-      const fileName = saveBase64Image(
-        gameState.currentSegment.imageUrl,
-        storyDir,
-        `current_segment.png`,
-      );
-      if (fileName) {
-        gameState.currentSegment.imageUrl = `/saved_stories/${storyId}/${fileName}`;
+    // Process current segment image and audio
+    if (gameState.currentSegment) {
+      if (
+        gameState.currentSegment.imageUrl &&
+        gameState.currentSegment.imageUrl.startsWith("data:")
+      ) {
+        const fileName = saveBase64Media(
+          gameState.currentSegment.imageUrl,
+          storyDir,
+          `current_segment.png`,
+        );
+        if (fileName) {
+          gameState.currentSegment.imageUrl = `/saved_stories/${storyId}/${fileName}`;
+        }
+      }
+
+      if (
+        gameState.currentSegment.audioUrl &&
+        gameState.currentSegment.audioUrl.startsWith("data:")
+      ) {
+        const fileName = saveBase64Media(
+          gameState.currentSegment.audioUrl,
+          storyDir,
+          `current_segment.mp3`,
+        );
+        if (fileName) {
+          gameState.currentSegment.audioUrl = `/saved_stories/${storyId}/${fileName}`;
+        }
       }
     }
 
