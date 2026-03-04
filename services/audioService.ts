@@ -293,11 +293,11 @@ export const stopAmbience = () => {
   currentMood = null;
 };
 
-export const setAmbience = (mood: SceneMood) => {
+export const setAmbience = (mood: SceneMood, forceRestart: boolean = false) => {
   if (!audioCtx) initAudio();
   if (!audioCtx) return;
 
-  if (currentMood === mood) return; // Don't restart if same mood
+  if (currentMood === mood && !forceRestart) return; // Don't restart if same mood unless forced
 
   // Fade out old
   stopAmbience();

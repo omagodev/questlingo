@@ -75,12 +75,12 @@ const StoryView: React.FC<StoryViewProps> = ({
     };
   }, [segment]);
 
-  // Trigger Ambience based on mood
+  // Trigger Ambience based on mood - restart on every new segment
   useEffect(() => {
     if (segment.mood) {
-      setAmbience(segment.mood);
+      setAmbience(segment.mood, true);
     }
-  }, [segment.mood]);
+  }, [segment]);
 
   // Sync state with actual speech status periodically
   useEffect(() => {
