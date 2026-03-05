@@ -498,7 +498,14 @@ const StoryView: React.FC<StoryViewProps> = ({
               <Button
                 variant="accent"
                 fullWidth
-                onClick={onChallengeRequest}
+                onClick={() => {
+                  stopSpeech();
+                  if (audioRef.current) {
+                    audioRef.current.pause();
+                    setNarrationStatus("paused");
+                  }
+                  onChallengeRequest();
+                }}
                 className="animate-pulse"
               >
                 ⚔️ Enfrentar Desafio ({segment.challenge.type})
