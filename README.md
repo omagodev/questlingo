@@ -9,7 +9,7 @@ O projeto permite que os jogadores leiam contos gerados dinamicamente, enfrentem
 - **Múltiplos Cenários e Dificuldades**: Escolha o ambiente da sua aventura (Fantasia, Sci-Fi, Cyberpunk, etc.) e ajuste o nível de inglês (Iniciante, Intermediário, Avançado e Fluente).
 - **Modo História (Guided)**: Participe de uma narrativa rica em 10 capítulos, tomando decisões ao final de cada cena que moldam o rumo da história.
 - **Modo Sobrevivência (Survival)**: Enfrente batalhas rápidas de vocabulário para ver quantas ondas consecutivas consegue vencer.
-- **Geração por IA (OpenAI / Gemini)**:
+- **Geração por IA (OpenAI)**:
   - Geração de narrativa e perguntas de múltipla escolha.
   - Geração de imagens via DALL-E 3 no estilo "32-bit retro RPG".
   - Geração de vozes e áudio (TTS-1) simulando narrações de NPCs.
@@ -42,7 +42,7 @@ O projeto permite que os jogadores leiam contos gerados dinamicamente, enfrentem
 ### Pré-requisitos
 
 - [Node.js](https://nodejs.org/) (versão 18+ recomendada)
-- Chave de API da OpenAI (ou Gemini).
+- Chave de API da OpenAI.
 
 ### 1. Clonando ou acessando o diretório do projeto
 
@@ -60,8 +60,7 @@ Na raiz do projeto, edite o arquivo `.env` com suas configurações. Ele deve se
 
 ```env
 OPENAI_API_KEY="sk-SuaChaveDaOpenAIAqui"
-GEMINI_API_KEY="SuaChaveDoGeminiOpcional"
-VITE_API_URL="http://localhost:3001"
+VITE_API_URL="http://localhost:3500"
 ```
 
 ### 3. Rodando o Backend (Local Storage Server)

@@ -5,7 +5,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import OpenAI from "openai";
-import { GoogleGenerativeAI } from "@google/genai";
 
 dotenv.config();
 
@@ -37,7 +36,6 @@ app.use("/saved_stories", express.static(SAVES_DIR));
 
 // AI Clients setup
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Helper to sanitize path and prevent traversal
 const sanitizePath = (p) => {
@@ -108,26 +106,6 @@ app.post("/api/ai/openai/speech", async (req, res) => {
   } catch (error) {
     console.error("OpenAI Speech Proxy Error:", error);
     res.status(500).json({ error: "AI Speech Error" });
-  }
-});
-
-app.post("/api/ai/gemini/generate", async (req, res) => {
-  try {
-    const { model: modelName, contents, config } = req.body;
-    const model = genAI.getGenerativeModel({
-      model: modelName || "gemini-2.0-flash",
-    });
-
-    // Simplification for proxy: backend handles the generation call
-    const result = await model.generateContent({
-      contents: contents,
-      generationConfig: config,
-    });
-    const response = await result.response;
-    res.json({ text: response.text() });
-  } catch (error) {
-    console.error("Gemini Proxy Error:", error);
-    res.status(500).json({ error: "Gemini Error" });
   }
 });
 

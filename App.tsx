@@ -353,7 +353,7 @@ const App: React.FC = () => {
         },
       }));
 
-      // In Story Mode, if it's scene 10, the "choices" will be empty from Gemini.
+      // In Story Mode, if it's scene 10, the "choices" will be empty.
       // We check for victory when they click "Finish" or if choices array is empty.
       if (gameState.mode === GameMode.STORY && gameState.history.length === 9) {
         // Victory logic will trigger when they finish the 10th scene
