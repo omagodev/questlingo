@@ -1,12 +1,9 @@
 // Simple synth for 8-bit style sound effects using Web Audio API
-import { SceneMood, AudioSettings } from "../types";
+import { SceneMood, AudioSettings, Theme } from "../types";
 
 const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
 let audioCtx: AudioContext | null = null;
 let backgroundGain: GainNode | null = null; // Master volume for background sounds
-let ambienceNodes: AudioNode[] = [];
-let musicTimer: number | null = null;
-let currentMood: SceneMood | null = null;
 
 export const initAudio = () => {
   if (!audioCtx) {
@@ -16,7 +13,6 @@ export const initAudio = () => {
     backgroundGain = audioCtx.createGain();
     backgroundGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
     backgroundGain.connect(audioCtx.destination);
-    console.log("Background gain initialized");
   }
   if (audioCtx.state === "suspended") {
     audioCtx.resume().catch((err) => console.error("Audio resume failed", err));
@@ -71,9 +67,9 @@ export const playSfx = (type: SoundType) => {
         playTone(600, "square", 0.05, now, 0.05);
         break;
       case "SUCCESS":
-        playTone(440, "sine", 0.1, now, 0.1); // A4
-        playTone(554, "sine", 0.1, now + 0.08, 0.1); // C#5
-        playTone(659, "sine", 0.2, now + 0.16, 0.1); // E5
+        playTone(440, "sine", 0.1, now, 0.1);
+        playTone(554, "sine", 0.1, now + 0.08, 0.1);
+        playTone(659, "sine", 0.2, now + 0.16, 0.1);
         break;
       case "ERROR":
         playTone(150, "sawtooth", 0.2, now, 0.1);
@@ -100,282 +96,173 @@ export const playSfx = (type: SoundType) => {
   }
 };
 
-// --- Procedural Music Engine (The Bard) ---
+// ─── Background Music Engine (MP3-based) ────────────────────────────
 
-// Scales (frequencies in Hz)
-const SCALES = {
-  // Dorian Mode (Medieval/Fantasy feel) - D Minorish
-  DORIAN: [293.66, 329.63, 349.23, 392.0, 440.0, 493.88, 523.25, 587.33],
-  // Aeolian (Sad/Somber)
-  MINOR: [220.0, 246.94, 261.63, 293.66, 329.63, 349.23, 392.0, 440.0],
-  // Phrygian (Tension/Combat)
-  COMBAT: [110.0, 116.54, 130.81, 146.83, 164.81, 174.61, 196.0, 220.0],
-  // Whole Tone (Dreamy/Magical)
-  MAGICAL: [261.63, 293.66, 329.63, 369.99, 415.3, 466.16, 523.25],
+// Track lists per theme folder
+const MEDIEVAL_TRACKS = [
+  "/bd-sound/medieval/deuslower-medieval-ambient-236809.mp3",
+  "/bd-sound/medieval/tunetank-medieval-background-348171.mp3",
+  "/bd-sound/medieval/tunetank-medieval-waltz-music-412748.mp3",
+  "/bd-sound/medieval/tunetank-medieval-waltz-music-412748 (1).mp3",
+  "/bd-sound/medieval/watermelon_beats-medieval-folk-music-2026-489261.mp3",
+];
+
+const SCIFI_TRACKS = [
+  "/bd-sound/sci-fi/deuslower-medieval-ambient-236809.mp3",
+  "/bd-sound/sci-fi/tunetank-medieval-background-348171.mp3",
+  "/bd-sound/sci-fi/tunetank-medieval-waltz-music-412748.mp3",
+  "/bd-sound/sci-fi/tunetank-medieval-waltz-music-412748 (1).mp3",
+  "/bd-sound/sci-fi/watermelon_beats-medieval-folk-music-2026-489261.mp3",
+];
+
+const CHALLENGE_TRACKS = [
+  "/bd-sound/challenge/liecio-dark-drone-ambient-312347.mp3",
+  "/bd-sound/challenge/liecio-hi-sounds-of-dread-premonition-soundscapes-312346.mp3",
+  "/bd-sound/challenge/nxtlvl_snds-dark-cinematic-drone-deep-bass-ambient-456038.mp3",
+  "/bd-sound/challenge/pastichio_piano_music-tension-and-release-289419.mp3",
+  "/bd-sound/challenge/roneyfriday-suspense-tension-341051.mp3",
+  "/bd-sound/challenge/valddos-dark-night-269715.mp3",
+];
+
+// Map themes to track folders
+const getTracksForTheme = (theme: Theme): string[] => {
+  switch (theme) {
+    case Theme.SCIFI:
+      return SCIFI_TRACKS;
+    case Theme.FANTASY:
+    case Theme.MYSTERY:
+    case Theme.SURVIVAL:
+    default:
+      return MEDIEVAL_TRACKS;
+  }
 };
 
-const playLuteNote = (freq: number, time: number, duration: number = 1.0) => {
-  if (!audioCtx) return;
+// State
+let bgAudio: HTMLAudioElement | null = null;
+let challengeAudio: HTMLAudioElement | null = null;
+let currentTheme: Theme | null = null;
+let currentTrackIndex = 0;
+let isMuted = false;
 
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
+const BG_VOLUME = 0.3;
+const CHALLENGE_VOLUME = 0.35;
 
-  // Triangle wave sounds a bit like a plucked string/flute in 8-bit
-  osc.type = "triangle";
-  osc.frequency.value = freq;
+// ─── Theme Music ──────────────────────────────────────────────
 
-  // Pluck envelope
-  gain.gain.setValueAtTime(0, time);
-  gain.gain.linearRampToValueAtTime(0.15, time + 0.05); // Attack
-  gain.gain.exponentialRampToValueAtTime(0.001, time + duration); // Decay
-
-  osc.connect(gain);
-  if (backgroundGain) {
-    gain.connect(backgroundGain);
-  } else {
-    gain.connect(audioCtx.destination);
+/** Start or switch the theme background music, rotating through available tracks. */
+export const setThemeMusic = (theme: Theme, chapterIndex: number = 0) => {
+  if (isMuted) {
+    currentTheme = theme;
+    currentTrackIndex = chapterIndex;
+    return;
   }
 
-  osc.start(time);
-  osc.stop(time + duration);
-};
+  const tracks = getTracksForTheme(theme);
+  const trackIdx = chapterIndex % tracks.length;
+  const trackUrl = tracks[trackIdx];
 
-const playBassNote = (freq: number, time: number) => {
-  if (!audioCtx) return;
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = "sawtooth";
-  osc.frequency.value = freq / 2; // Octave down
-
-  gain.gain.setValueAtTime(0.1, time);
-  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.5);
-
-  const filter = audioCtx.createBiquadFilter();
-  filter.type = "lowpass";
-  filter.frequency.value = 400;
-
-  osc.connect(filter).connect(gain);
-  if (backgroundGain) {
-    gain.connect(backgroundGain);
-  } else {
-    gain.connect(audioCtx.destination);
+  // Already playing this exact track?
+  if (
+    bgAudio &&
+    currentTheme === theme &&
+    currentTrackIndex === trackIdx &&
+    !bgAudio.paused
+  ) {
+    return;
   }
-  osc.start(time);
-  osc.stop(time + 0.5);
+
+  // Stop current
+  stopThemeMusic();
+
+  currentTheme = theme;
+  currentTrackIndex = trackIdx;
+
+  bgAudio = new Audio(trackUrl);
+  bgAudio.loop = true;
+  bgAudio.volume = BG_VOLUME;
+  bgAudio.play().catch((e) => console.warn("Theme music play failed:", e));
 };
 
-const startMusicSequencer = (mood: SceneMood) => {
-  if (!audioCtx) return;
-
-  let nextNoteTime = audioCtx.currentTime;
-  let beatCount = 0;
-
-  // Stop existing loop
-  if (musicTimer) clearInterval(musicTimer);
-
-  const scheduleNotes = () => {
-    if (!audioCtx) return;
-    const now = audioCtx.currentTime;
-
-    // Lookahead: Schedule notes for the next 0.5 seconds
-    while (nextNoteTime < now + 0.5) {
-      // -- COMPOSITION LOGIC --
-
-      if (mood === "peaceful" || mood === ("fantasy" as any)) {
-        // Slow Arpeggios
-        const scale = SCALES.DORIAN;
-        const speed = 0.5; // Seconds per note
-
-        // Randomly pick notes from scale, favoring chord tones
-        const noteIdx = Math.floor(Math.random() * scale.length);
-        playLuteNote(scale[noteIdx], nextNoteTime, 2.0);
-
-        // Occasional Bass
-        if (beatCount % 4 === 0) playBassNote(scale[0], nextNoteTime);
-
-        nextNoteTime += speed;
-      } else if (mood === "combat" || mood === "cyberpunk") {
-        // Fast, aggressive
-        const scale = SCALES.COMBAT;
-        const speed = 0.25;
-
-        if (beatCount % 2 === 0) {
-          playBassNote(scale[Math.floor(Math.random() * 3)], nextNoteTime);
-        }
-        if (Math.random() > 0.3) {
-          playLuteNote(
-            scale[Math.floor(Math.random() * scale.length)],
-            nextNoteTime,
-            0.3,
-          );
-        }
-
-        nextNoteTime += speed;
-      } else if (mood === "suspense" || mood === "creepy") {
-        // Sparse, dissonant
-        const scale = SCALES.MINOR;
-        // Random timing
-        const speed = 0.5 + Math.random();
-
-        playLuteNote(
-          scale[Math.floor(Math.random() * scale.length)],
-          nextNoteTime,
-          3.0,
-        );
-        // Add a detuned interval
-        playLuteNote(
-          scale[Math.floor(Math.random() * scale.length)] + 5,
-          nextNoteTime,
-          3.0,
-        );
-
-        nextNoteTime += speed;
-      } else if (mood === "magical") {
-        // Dreamy
-        const scale = SCALES.MAGICAL;
-        const speed = 0.4;
-
-        // Ascending runs
-        const idx = beatCount % scale.length;
-        playLuteNote(scale[idx], nextNoteTime, 1.5);
-        if (beatCount % 3 === 0)
-          playLuteNote(scale[(idx + 2) % scale.length], nextNoteTime, 1.5);
-
-        nextNoteTime += speed;
-      } else {
-        // Default / Peaceful fallback
-        const scale = SCALES.DORIAN;
-        playLuteNote(
-          scale[Math.floor(Math.random() * scale.length)],
-          nextNoteTime,
-          1.5,
-        );
-        nextNoteTime += 0.8;
-      }
-
-      beatCount++;
-    }
-  };
-
-  // Run the scheduler frequently
-  musicTimer = window.setInterval(scheduleNotes, 200);
-};
-
-// --- Ambience Engine (Background Drone/Noise) ---
-
-const createNoiseBuffer = () => {
-  if (!audioCtx) return null;
-  const bufferSize = audioCtx.sampleRate * 2; // 2 seconds
-  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) {
-    data[i] = Math.random() * 2 - 1;
+const stopThemeMusic = () => {
+  if (bgAudio) {
+    bgAudio.pause();
+    bgAudio.src = "";
+    bgAudio = null;
   }
-  return buffer;
 };
 
+// ─── Challenge Music ──────────────────────────────────────────
+
+/** Start a random challenge track, ducking the theme music. */
+export const setChallengeMusic = () => {
+  if (isMuted) return;
+
+  // Duck theme music
+  if (bgAudio) {
+    bgAudio.volume = 0.08;
+  }
+
+  // Pick random challenge track
+  const track =
+    CHALLENGE_TRACKS[Math.floor(Math.random() * CHALLENGE_TRACKS.length)];
+
+  stopChallengeMusic();
+
+  challengeAudio = new Audio(track);
+  challengeAudio.loop = true;
+  challengeAudio.volume = CHALLENGE_VOLUME;
+  challengeAudio
+    .play()
+    .catch((e) => console.warn("Challenge music play failed:", e));
+};
+
+/** Stop challenge track and restore theme music volume. */
+export const stopChallengeMusic = () => {
+  if (challengeAudio) {
+    challengeAudio.pause();
+    challengeAudio.src = "";
+    challengeAudio = null;
+  }
+
+  // Restore theme music volume
+  if (bgAudio && !isMuted) {
+    bgAudio.volume = BG_VOLUME;
+  }
+};
+
+// ─── Mute / Legacy API ────────────────────────────────────────
+
+/** Stops all background music (theme + challenge). Used by mute button. */
 export const stopAmbience = () => {
-  if (musicTimer) {
-    clearInterval(musicTimer);
-    musicTimer = null;
-  }
-
-  if (ambienceNodes.length > 0) {
-    ambienceNodes.forEach((node) => {
-      try {
-        // Check if it's a source node that can be stopped
-        if ("stop" in node) (node as any).stop();
-        node.disconnect();
-      } catch (e) {}
-    });
-    ambienceNodes = [];
-  }
-  currentMood = null;
+  stopThemeMusic();
+  stopChallengeMusic();
+  currentTheme = null;
 };
 
+/** Legacy setAmbience — delegates to setThemeMusic if a theme is active. */
 export const setAmbience = (mood: SceneMood, forceRestart: boolean = false) => {
-  if (!audioCtx) initAudio();
-  if (!audioCtx) return;
-
-  if (currentMood === mood && !forceRestart) return; // Don't restart if same mood unless forced
-
-  // Fade out old
-  stopAmbience();
-  currentMood = mood;
-
-  // 1. Start the Background Drone/Noise (Atmosphere)
-  const now = audioCtx.currentTime;
-  const masterGain = audioCtx.createGain();
-
-  if (backgroundGain) {
-    masterGain.connect(backgroundGain);
-  } else {
-    masterGain.connect(audioCtx.destination);
+  // This is called from StoryView per segment mood change.
+  // If theme music is already playing, just keep it going.
+  // The mute toggle uses this to restart music.
+  if (forceRestart && currentTheme) {
+    setThemeMusic(currentTheme, currentTrackIndex);
   }
-
-  masterGain.gain.setValueAtTime(0, now);
-  masterGain.gain.linearRampToValueAtTime(0.1, now + 2); // Fade in
-  ambienceNodes.push(masterGain);
-
-  const noiseBuffer = createNoiseBuffer();
-
-  switch (mood) {
-    case "peaceful":
-    case "magical":
-      // Wind/Ethereal
-      if (noiseBuffer) {
-        const noise = audioCtx.createBufferSource();
-        noise.buffer = noiseBuffer;
-        noise.loop = true;
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = "lowpass";
-        filter.frequency.value = 400;
-        noise.connect(filter).connect(masterGain);
-        noise.start();
-        ambienceNodes.push(noise, filter);
-      }
-      break;
-
-    case "suspense":
-    case "creepy":
-      // Low rumble
-      const osc2 = audioCtx.createOscillator();
-      osc2.type = "sawtooth";
-      osc2.frequency.value = 50;
-      const filter2 = audioCtx.createBiquadFilter();
-      filter2.type = "lowpass";
-      filter2.frequency.value = 150;
-      osc2.connect(filter2).connect(masterGain);
-      osc2.start();
-      ambienceNodes.push(osc2, filter2);
-      break;
-
-    case "combat":
-    case "cyberpunk":
-      // Noisy drone
-      const osc3 = audioCtx.createOscillator();
-      osc3.type = "square";
-      osc3.frequency.value = 80;
-      const lfo = audioCtx.createOscillator();
-      lfo.frequency.value = 8; // Fast vibrato
-      const lfoGain = audioCtx.createGain();
-      lfoGain.gain.value = 10;
-      lfo.connect(lfoGain).connect(osc3.frequency);
-
-      const filter3 = audioCtx.createBiquadFilter();
-      filter3.type = "lowpass";
-      filter3.frequency.value = 300;
-
-      osc3.connect(filter3).connect(masterGain);
-      osc3.start();
-      lfo.start();
-      ambienceNodes.push(osc3, lfo, lfoGain, filter3);
-      break;
-  }
-
-  // 2. Start the Musical Composition
-  startMusicSequencer(mood);
 };
+
+/** Toggle mute state. Returns new muted state. */
+export const toggleMute = (): boolean => {
+  isMuted = !isMuted;
+  if (isMuted) {
+    if (bgAudio) bgAudio.volume = 0;
+    if (challengeAudio) challengeAudio.volume = 0;
+  } else {
+    if (bgAudio) bgAudio.volume = BG_VOLUME;
+    if (challengeAudio) challengeAudio.volume = CHALLENGE_VOLUME;
+  }
+  return isMuted;
+};
+
+export const isAudioMuted = (): boolean => isMuted;
 
 // --- Text to Speech (TTS) Logic ---
 

@@ -107,23 +107,61 @@ const STORY_SCHEMA = {
         challenge: {
           type: "object",
           properties: {
+            challengeFormat: {
+              type: "string",
+              enum: [
+                "multiple_choice",
+                "fill_blank",
+                "word_order",
+                "translation",
+                "bubble_pop",
+              ],
+            },
             question: { type: "string" },
             options: { type: "array", items: { type: "string" } },
             correctIndex: { type: "integer" },
             explanation: { type: "string" },
             type: { type: "string" },
+            answer: { anyOf: [{ type: "string" }, { type: "null" }] },
+            scrambledWords: {
+              anyOf: [
+                { type: "array", items: { type: "string" } },
+                { type: "null" },
+              ],
+            },
+            sentence: { anyOf: [{ type: "string" }, { type: "null" }] },
+            bubbleCategory: { anyOf: [{ type: "string" }, { type: "null" }] },
+            correctBubbles: {
+              anyOf: [
+                { type: "array", items: { type: "string" } },
+                { type: "null" },
+              ],
+            },
+            wrongBubbles: {
+              anyOf: [
+                { type: "array", items: { type: "string" } },
+                { type: "null" },
+              ],
+            },
           },
           required: [
+            "challengeFormat",
             "question",
             "options",
             "correctIndex",
             "explanation",
             "type",
+            "answer",
+            "scrambledWords",
+            "sentence",
+            "bubbleCategory",
+            "correctBubbles",
+            "wrongBubbles",
           ],
           additionalProperties: false,
         },
         xpReward: { type: "integer" },
-        itemReward: { type: ["string", "null"] },
+        itemReward: { anyOf: [{ type: "string" }, { type: "null" }] },
       },
       required: [
         "content",
@@ -141,14 +179,62 @@ const STORY_SCHEMA = {
   },
 };
 
+const CHALLENGE_FORMAT_INSTRUCTIONS = `
+IMPORTANT — Challenge Format Rules:
+You MUST use the exact challengeFormat specified below. Do NOT choose a different one.
+
+LANGUAGE RULES:
+- The story content (content field) MUST be in English.
+- The challenge question, explanation, options, and bubbleCategory MUST ALL be in PORTUGUESE (Brazilian Portuguese).
+- For "fill_blank": the question sentence should mix English with Portuguese instruction, e.g. "Complete a frase: The cat ___ on the mat".
+- For "word_order": the question should be in Portuguese (e.g. "Organize as palavras para formar a frase correta:"). The sentence and scrambledWords are in English.
+- For "translation": the question is a PORTUGUESE sentence and the answer is in ENGLISH. For beginner difficulty, use only single words or very short phrases (2-3 words max).
+- For "bubble_pop": bubbleCategory must be in Portuguese (e.g. "Animais"), but correctBubbles and wrongBubbles are English words.
+- The explanation must ALWAYS be in Portuguese, explaining why the answer is correct.
+
+Depending on challengeFormat, fill the relevant fields and set the others to null:
+- "multiple_choice": fill options (4 items) and correctIndex. Set answer, scrambledWords, sentence, bubbleCategory, correctBubbles, wrongBubbles to null.
+- "fill_blank": question is a sentence with ___ for the blank. Fill answer with the missing word. Set options to [], correctIndex to 0, scrambledWords, sentence, bubbleCategory, correctBubbles, wrongBubbles to null.
+- "word_order": fill sentence (the correct English sentence, short, max 8 words) and scrambledWords (the same words shuffled). Set options to [], correctIndex to 0, answer, bubbleCategory, correctBubbles, wrongBubbles to null.
+- "translation": question is a Portuguese sentence/word. Fill answer with the correct English translation. For beginner level use SINGLE WORDS only. Set options to [], correctIndex to 0, scrambledWords, sentence, bubbleCategory, correctBubbles, wrongBubbles to null.
+- "bubble_pop": fill bubbleCategory (in Portuguese, e.g. "Animais"), correctBubbles (5-6 English words in that category), and wrongBubbles (4-5 English words from a DIFFERENT category). Set options to [], correctIndex to 0, answer, scrambledWords, sentence to null.
+
+Always fill question, explanation, and type regardless of format.
+`;
+
+const CHALLENGE_FORMATS = [
+  "multiple_choice",
+  "fill_blank",
+  "word_order",
+  "translation",
+  "bubble_pop",
+] as const;
+
+const pickChallengeFormat = () =>
+  CHALLENGE_FORMATS[Math.floor(Math.random() * CHALLENGE_FORMATS.length)];
+
+const STORY_LENGTH_RULES: Record<string, string> = {
+  Iniciante:
+    "IMPORTANT: The story text (content) MUST be very short: 2-3 simple sentences with basic vocabulary. Use short words and present tense.",
+  Intermediário:
+    "The story text (content) should be moderate: 3-5 sentences with intermediate vocabulary.",
+  Avançado:
+    "The story text (content) can be longer: 5-7 sentences with advanced vocabulary and complex structures.",
+};
+
 export const generateStoryStart = async (
   theme: Theme,
   difficulty: Difficulty,
 ): Promise<StorySegment> => {
+  const chosenFormat = pickChallengeFormat();
+  const lengthRule =
+    STORY_LENGTH_RULES[difficulty] || STORY_LENGTH_RULES["Intermediário"];
   const prompt = `
     You are a Dungeon Master for a gamified English learning app.
     The user speaks Portuguese and wants to learn English.
     Theme: ${theme}, Difficulty: ${difficulty}. Step 1 of 10.
+    ${lengthRule}
+    CHALLENGE FORMAT FOR THIS SCENE: "${chosenFormat}"
     ${getCreativeSeed()}
   `;
 
@@ -159,8 +245,8 @@ export const generateStoryStart = async (
       messages: [
         {
           role: "system",
-          content:
-            "You are an engaging storyteller and English teacher. Always return valid JSON.",
+          content: `You are an engaging storyteller and English teacher. Always return valid JSON.
+${CHALLENGE_FORMAT_INSTRUCTIONS}`,
         },
         { role: "user", content: prompt },
       ],
@@ -180,10 +266,15 @@ export const generateNextSegment = async (
   difficulty: Difficulty,
   currentStep: number,
 ): Promise<StorySegment> => {
+  const chosenFormat = pickChallengeFormat();
+  const lengthRule =
+    STORY_LENGTH_RULES[difficulty] || STORY_LENGTH_RULES["Intermediário"];
   const isFinale = currentStep >= 10;
   const prompt = `
     Interactive story. Step: ${currentStep} of 10. Previous: "${previousContent}". Choice: "${userChoice}". Difficulty: ${difficulty}.
+    ${lengthRule}
     ${isFinale ? "CRITICAL: Final scene. Conclude satisfyingly. No choices." : ""}
+    CHALLENGE FORMAT FOR THIS SCENE: "${chosenFormat}"
     ${getCreativeSeed()}
   `;
 
@@ -194,8 +285,8 @@ export const generateNextSegment = async (
       messages: [
         {
           role: "system",
-          content:
-            "You are an engaging storyteller and English teacher. Always return valid JSON.",
+          content: `You are an engaging storyteller and English teacher. Always return valid JSON.
+${CHALLENGE_FORMAT_INSTRUCTIONS}`,
         },
         { role: "user", content: prompt },
       ],
@@ -214,8 +305,13 @@ export const generateSurvivalSegment = async (
   difficulty: Difficulty,
   round: number,
 ): Promise<StorySegment> => {
+  const chosenFormat = pickChallengeFormat();
+  const lengthRule =
+    STORY_LENGTH_RULES[difficulty] || STORY_LENGTH_RULES["Intermediário"];
   const prompt = `
     Mode: SURVIVAL MODE (Round ${round}). Theme: ${theme}. Difficulty: ${difficulty}.
+    ${lengthRule}
+    CHALLENGE FORMAT FOR THIS SCENE: "${chosenFormat}"
     ${getCreativeSeed()}
   `;
 
@@ -226,7 +322,8 @@ export const generateSurvivalSegment = async (
       messages: [
         {
           role: "system",
-          content: "You are an engaging storyteller. Always return valid JSON.",
+          content: `You are an engaging storyteller and English teacher. Always return valid JSON.
+${CHALLENGE_FORMAT_INSTRUCTIONS}`,
         },
         { role: "user", content: prompt },
       ],

@@ -9,7 +9,16 @@ import {
   UserProfile,
 } from "./types";
 import * as AI from "./services/aiService";
-import { playSfx, initAudio, stopAmbience } from "./services/audioService";
+import {
+  playSfx,
+  initAudio,
+  stopAmbience,
+  setThemeMusic,
+  setChallengeMusic,
+  stopChallengeMusic,
+  toggleMute,
+  isAudioMuted,
+} from "./services/audioService";
 import { saveGame } from "./services/storageService";
 import Welcome from "./components/Welcome";
 import StatsBar from "./components/StatsBar";
@@ -244,6 +253,9 @@ const App: React.FC = () => {
 
       setGameState(finalState);
 
+      // Start theme music for the first chapter
+      setThemeMusic(theme, 0);
+
       // Save explicitly and update URL
       const newId = await saveGame(finalState);
       if (newId) {
@@ -311,6 +323,9 @@ const App: React.FC = () => {
 
       setGameState(finalState);
       window.scrollTo({ top: 0, behavior: "smooth" });
+
+      // Rotate theme music to next track for new chapter
+      setThemeMusic(targetState.theme, finalState.history.length);
 
       // Save explicitly and update URL
       const newId = await saveGame(finalState);
@@ -456,6 +471,13 @@ const App: React.FC = () => {
         onSaveGame={handleSaveGame}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onExit={handleReturnToMenu}
+        isAmbienceMuted={isAudioMuted()}
+        onToggleAmbience={() => {
+          const muted = toggleMute();
+          // Force re-render
+          setGameState((prev) => ({ ...prev }));
+          playSfx("CLICK");
+        }}
       />
 
       <div className="max-w-3xl mx-auto px-4 pt-4 flex justify-between items-center opacity-60">
@@ -499,9 +521,10 @@ const App: React.FC = () => {
           <StoryView
             segment={viewedSegment}
             onChoiceSelected={handleChoice}
-            onChallengeRequest={() =>
-              setGameState((prev) => ({ ...prev, isChallengeActive: true }))
-            }
+            onChallengeRequest={() => {
+              setChallengeMusic();
+              setGameState((prev) => ({ ...prev, isChallengeActive: true }));
+            }}
             isChallengeSolved={gameState.challengeSolved}
             isGenerating={gameState.isLoading}
             settings={gameState.settings}
@@ -568,10 +591,14 @@ const App: React.FC = () => {
       {gameState.isChallengeActive && gameState.currentSegment && (
         <ChallengeModal
           challenge={gameState.currentSegment.challenge}
-          onSolve={handleChallengeResult}
-          onClose={() =>
-            setGameState((prev) => ({ ...prev, isChallengeActive: false }))
-          }
+          onSolve={(success) => {
+            stopChallengeMusic();
+            handleChallengeResult(success);
+          }}
+          onClose={() => {
+            stopChallengeMusic();
+            setGameState((prev) => ({ ...prev, isChallengeActive: false }));
+          }}
         />
       )}
       {isChatOpen && gameState.currentSegment && (

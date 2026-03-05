@@ -516,17 +516,32 @@ const StoryView: React.FC<StoryViewProps> = ({
               <p className="text-green-400 text-center font-retro text-xs mb-2">
                 ✅ Desafio completo! Escolha seu caminho:
               </p>
-              {segment.choices.map((choice, idx) => (
+              {segment.choices.length > 0 ? (
+                segment.choices.map((choice, idx) => (
+                  <Button
+                    key={idx}
+                    variant="primary"
+                    fullWidth
+                    disabled={isGenerating}
+                    onClick={() => onChoiceSelected(choice.intent)}
+                  >
+                    {isGenerating
+                      ? "Escrevendo destino..."
+                      : `👉 ${choice.text}`}
+                  </Button>
+                ))
+              ) : (
                 <Button
-                  key={idx}
                   variant="primary"
                   fullWidth
                   disabled={isGenerating}
-                  onClick={() => onChoiceSelected(choice.intent)}
+                  onClick={() => onChoiceSelected("continue the adventure")}
                 >
-                  {isGenerating ? "Escrevendo destino..." : `👉 ${choice.text}`}
+                  {isGenerating
+                    ? "Escrevendo destino..."
+                    : "👉 Continuar a aventura"}
                 </Button>
-              ))}
+              )}
             </div>
           )}
         </div>

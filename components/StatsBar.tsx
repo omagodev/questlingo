@@ -8,6 +8,8 @@ interface StatsBarProps {
   onSaveGame: () => void;
   onOpenSettings: () => void;
   onExit: () => void;
+  onToggleAmbience: () => void;
+  isAmbienceMuted: boolean;
 }
 
 const StatsBar: React.FC<StatsBarProps> = ({
@@ -16,6 +18,8 @@ const StatsBar: React.FC<StatsBarProps> = ({
   onSaveGame,
   onOpenSettings,
   onExit,
+  onToggleAmbience,
+  isAmbienceMuted,
 }) => {
   return (
     <div className="bg-quest-card w-full p-2 md:p-4 flex flex-col md:flex-row justify-between items-center sticky top-0 z-50 shadow-md border-b border-gray-800 gap-2 md:gap-0">
@@ -89,6 +93,20 @@ const StatsBar: React.FC<StatsBarProps> = ({
             title="Configurações de Áudio"
           >
             <span>⚙️</span>
+          </button>
+
+          <button
+            onClick={onToggleAmbience}
+            className={`p-2 rounded border transition-colors text-xs font-bold uppercase flex items-center gap-1 flex-shrink-0 ${
+              isAmbienceMuted
+                ? "bg-red-900/30 text-red-300 border-red-800 hover:bg-red-800 hover:text-white"
+                : "bg-purple-900/30 text-purple-300 border-purple-800 hover:bg-purple-800 hover:text-white"
+            }`}
+            title={
+              isAmbienceMuted ? "Ativar Som de Fundo" : "Desativar Som de Fundo"
+            }
+          >
+            <span>{isAmbienceMuted ? "🔇" : "🔊"}</span>
           </button>
 
           <button

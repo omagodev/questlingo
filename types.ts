@@ -16,12 +16,29 @@ export enum GameMode {
   SURVIVAL = "Sobrevivência",
 }
 
+export type ChallengeFormat =
+  | "multiple_choice"
+  | "fill_blank"
+  | "word_order"
+  | "translation"
+  | "bubble_pop";
+
 export interface Challenge {
   question: string;
   options: string[];
   correctIndex: number;
   explanation: string;
   type: "vocabulary" | "grammar" | "comprehension";
+  challengeFormat?: ChallengeFormat;
+  // fill_blank & translation
+  answer?: string;
+  // word_order
+  scrambledWords?: string[];
+  sentence?: string;
+  // bubble_pop
+  bubbleCategory?: string;
+  correctBubbles?: string[];
+  wrongBubbles?: string[];
 }
 
 export interface StoryChoice {
