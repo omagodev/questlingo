@@ -101,6 +101,7 @@ const STORY_SCHEMA = {
               intent: { type: "string" },
             },
             required: ["text", "intent"],
+            additionalProperties: false,
           },
         },
         challenge: {
@@ -119,6 +120,7 @@ const STORY_SCHEMA = {
             "explanation",
             "type",
           ],
+          additionalProperties: false,
         },
         xpReward: { type: "integer" },
         itemReward: { type: ["string", "null"] },
@@ -279,6 +281,7 @@ export const translateWord = async (
           grammarClass: { type: "string" },
         },
         required: ["portuguese", "definition", "grammarClass"],
+        additionalProperties: false,
       },
       strict: true,
     },
