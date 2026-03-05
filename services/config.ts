@@ -1,5 +1,5 @@
 export const getApiUrl = (path: string): string => {
-  const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:3001";
+  const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:3500";
   // Remove leading slash from path if it has one, or ensure it's structured properly
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
   return `${baseUrl}${cleanPath}`;

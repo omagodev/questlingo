@@ -65,6 +65,19 @@ const App: React.FC = () => {
   const [viewingHistoryIndex, setViewingHistoryIndex] = useState<number | null>(
     null,
   );
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
+
+  // Helper to show notifications
+  const notify = (
+    message: string,
+    type: "success" | "error" | "info" = "info",
+  ) => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
 
   // Chapter navigation helpers
   const totalChapters =
@@ -105,16 +118,20 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (
-      gameState.isPlaying &&
-      !gameState.gameOver &&
-      !gameState.isLoading &&
-      gameState.currentSegment
-    ) {
-      try {
-        localStorage.setItem("lingoQuestSave", JSON.stringify(gameState));
-      } catch (e) {}
-    }
+    // Throttled persistence to avoid excessive writes
+    const timer = setTimeout(() => {
+      if (
+        gameState.isPlaying &&
+        !gameState.gameOver &&
+        !gameState.isLoading &&
+        gameState.currentSegment
+      ) {
+        try {
+          localStorage.setItem("lingoQuestSave", JSON.stringify(gameState));
+        } catch (e) {}
+      }
+    }, 1000); // 1s throttle
+    return () => clearTimeout(timer);
   }, [gameState]);
 
   const handleUpdateProfile = (newProfile: UserProfile) => {
@@ -139,11 +156,11 @@ const App: React.FC = () => {
     const newId = await saveGame(gameState);
     if (newId) {
       playSfx("SUCCESS");
-      alert("Jogo salvo com sucesso!");
+      notify("Jogo salvo com sucesso!", "success");
       setGameState((s) => ({ ...s, id: newId }));
       window.history.replaceState({}, "", `/?save=${newId}`);
     } else {
-      alert("Erro ao salvar jogo.");
+      notify("Erro ao salvar jogo.", "error");
     }
   };
 
@@ -234,7 +251,7 @@ const App: React.FC = () => {
         window.history.replaceState({}, "", `/?save=${newId}`);
       }
     } catch (error) {
-      alert("Erro ao iniciar aventura.");
+      notify("Erro ao iniciar aventura.", "error");
       setGameState((prev) => ({ ...prev, isLoading: false }));
     }
   };
@@ -302,7 +319,7 @@ const App: React.FC = () => {
         window.history.replaceState({}, "", `/?save=${newId}`);
       }
     } catch (error) {
-      alert("Erro ao gerar próximo capítulo.");
+      notify("Erro ao gerar próximo capítulo.", "error");
       setGameState((prev) => ({ ...prev, isLoading: false }));
     }
   };
@@ -418,6 +435,21 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-quest-dark pb-10">
+      {/* Toast Notification */}
+      {notification && (
+        <div
+          className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-full shadow-2xl font-bold animate-bounce-in border-2 ${
+            notification.type === "success"
+              ? "bg-quest-success/90 border-green-400 text-white"
+              : notification.type === "error"
+                ? "bg-red-600/90 border-red-400 text-white"
+                : "bg-quest-primary/90 border-blue-400 text-white"
+          }`}
+        >
+          {notification.message}
+        </div>
+      )}
+
       <StatsBar
         player={gameState.player}
         onOpenJournal={() => setIsJournalOpen(true)}
