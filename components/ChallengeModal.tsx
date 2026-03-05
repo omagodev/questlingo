@@ -12,6 +12,7 @@ interface ChallengeModalProps {
 const ChallengeModal: React.FC<ChallengeModalProps> = ({
   challenge,
   onSolve,
+  onClose,
 }) => {
   const [selected, setSelected] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -139,14 +140,26 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({
             )}
           </div>
         ) : (
-          <Button
-            onClick={handleSubmit}
-            variant="primary"
-            fullWidth
-            disabled={selected === null}
-          >
-            Verificar Resposta
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => {
+                playSfx("CLICK");
+                onClose();
+              }}
+              variant="secondary"
+              fullWidth
+            >
+              Desistir
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              variant="primary"
+              fullWidth
+              disabled={selected === null}
+            >
+              Verificar Resposta
+            </Button>
+          </div>
         )}
       </div>
     </div>
