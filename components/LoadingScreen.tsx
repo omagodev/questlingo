@@ -1,38 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 
-// Vocabulary for the word scramble mini-game
-const WORD_BANK = [
-  { en: "knight", pt: "cavaleiro" },
-  { en: "sword", pt: "espada" },
-  { en: "dragon", pt: "dragão" },
-  { en: "castle", pt: "castelo" },
-  { en: "wizard", pt: "mago" },
-  { en: "shield", pt: "escudo" },
-  { en: "forest", pt: "floresta" },
-  { en: "river", pt: "rio" },
-  { en: "magic", pt: "magia" },
-  { en: "quest", pt: "missão" },
-  { en: "potion", pt: "poção" },
-  { en: "shadow", pt: "sombra" },
-  { en: "throne", pt: "trono" },
-  { en: "bridge", pt: "ponte" },
-  { en: "storm", pt: "tempestade" },
-  { en: "flame", pt: "chama" },
-  { en: "tower", pt: "torre" },
-  { en: "battle", pt: "batalha" },
-  { en: "crown", pt: "coroa" },
-  { en: "brave", pt: "corajoso" },
-  { en: "ancient", pt: "antigo" },
-  { en: "travel", pt: "viajar" },
-  { en: "village", pt: "vila" },
-  { en: "secret", pt: "segredo" },
-  { en: "danger", pt: "perigo" },
-  { en: "light", pt: "luz" },
-  { en: "power", pt: "poder" },
-  { en: "treasure", pt: "tesouro" },
-  { en: "island", pt: "ilha" },
-  { en: "garden", pt: "jardim" },
-];
+import { WORD_BANK } from "../constants/wordBank";
 
 const LOADING_MESSAGES = [
   "✍️ O bardo está escrevendo...",
