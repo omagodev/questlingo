@@ -1,21 +1,105 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# LingoQuest - Aventura em Inglês ⚔️🛡️
 
-# Run and deploy your AI Studio app
+**LingoQuest** é um jogo de RPG gamificado focado no aprendizado e prática do inglês. Desenvolvido com uma stack moderna e potencializado por Inteligência Artificial, o projeto permite que os jogadores leiam contos gerados dinamicamente, enfrentem desafios de vocabulário e gramática, escutem a narração, e vejam imagens estonteantes no estilo Pixel Art de suas aventuras.
 
-This contains everything you need to run your app locally.
+## ✨ Funcionalidades
 
-View your app in AI Studio: https://ai.studio/apps/drive/1M4MZ64wrJVTj2sLGmjzLDoS-6KqTsbkX
+- **Múltiplos Cenários e Dificuldades**: Escolha o ambiente da sua aventura (Fantasia, Sci-Fi, Cyberpunk, etc.) e ajuste o nível de inglês (Iniciante, Intermediário, Avançado e Fluente).
+- **Modo História (Guided)**: Participe de uma narrativa rica em 10 capítulos, tomando decisões ao final de cada cena que moldam o rumo da história.
+- **Modo Sobrevivência (Survival)**: Enfrente batalhas rápidas de vocabulário para ver quantas ondas consecutivas consegue vencer.
+- **Geração por IA (OpenAI / Gemini)**:
+  - Geração de narrativa e perguntas de múltipla escolha.
+  - Geração de imagens via DALL-E 3 no estilo "32-bit retro RPG".
+  - Geração de vozes e áudio (TTS-1) simulando narrações de NPCs.
+  - Tradutor contextual de palavras ao clicar/tocar.
+- **Criação de Avatar**: Edite um avatar customizado ou gere um visual único descrevendo-o para a IA.
+- **Sistema de Saves**: Retome a sua jornada de onde parou. Todo histórico da aventura, imagens e áudios são persistidos por um Backend simples.
+- **Áudio Imersivo e SFX**: Trilha sonora ambiente (Cyberpunk, Fantasia, Suspense) e sons em reações de acerto, nível máximo, e interações da interface.
 
-## Run Locally
+## 🛠️ Tecnologias Utilizadas
 
-**Prerequisites:**  Node.js
+### Frontend
 
+- **React (Vite)**
+- **TypeScript**
+- **Tailwind CSS** para estilização da interface (com estética Retro/Dark Quest).
+- **PWA Ready** via `vite-plugin-pwa`.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
-# questlingo
+### Backend
+
+- **Node.js & Express** para gerenciar os arquivos salvos do jogo, imagens (em `Base64`) e áudios convertidos, armazenando tudo estaticamente e retornando estado JSON das sessões (`/saved_stories`).
+
+### Inteligência Artificial
+
+- **OpenAI API**: `gpt-4o-mini` (História, tutor e traduções), `dall-e-3` (Imagens e Avatares) e `tts-1` (Áudio das falas).
+
+---
+
+## 🚀 Como Executar Localmente
+
+### Pré-requisitos
+
+- [Node.js](https://nodejs.org/) (versão 18+ recomendada)
+- Chave de API da OpenAI (ou Gemini).
+
+### 1. Clonando ou acessando o diretório do projeto
+
+Se já estiver no diretório ou tiver baixado o repositório, proceda com:
+
+```bash
+npm install
+```
+
+_(Isso vai instalar as bibliotecas do Frontend e do Backend)._
+
+### 2. Variáveis de Ambiente
+
+Na raiz do projeto, edite o arquivo `.env` com suas configurações. Ele deve ser parecido com isso:
+
+```env
+OPENAI_API_KEY="sk-SuaChaveDaOpenAIAqui"
+GEMINI_API_KEY="SuaChaveDoGeminiOpcional"
+VITE_API_URL="http://localhost:3001"
+```
+
+### 3. Rodando o Backend (Local Storage Server)
+
+Em um terminal (na raiz do projeto), execute o servidor que gerenciará os salvamentos (`server.js`):
+
+```bash
+node server.js
+```
+
+O backend ficará rodando em `http://localhost:3001` (porta 3001).
+
+### 4. Rodando o Frontend (Aplicação React Vite)
+
+Abra outra janela do terminal na raiz do projeto e inicie o ambiente de desenvolvimento:
+
+```bash
+npm run dev
+```
+
+A Aplicação será acessível no navegador geralmente na porta `3500` - confira o terminal (`http://localhost:3500/`).
+
+---
+
+## 📂 Estrutura Principal do Projeto
+
+- `/components` - Componentes React da Interface (Interface, Modal, Histórico, Configurações).
+- `/services`
+  - `aiService.ts` / `openaiService.ts` - Funções que interagem com as APIs IAs de texto, áudios e imagens.
+  - `audioService.ts` - Singleton responsável por carregar os SFXs locais ou criar o HTML Audio.
+  - `storageService.ts` - Comunicação com o servidor backend (`server.js`) para gravar e puxar savegames.
+  - `config.ts` - Organiza URLs expostos pelas _Envs_.
+- `/public` - Assets de áudio (`sfx/`, `ambience/`) e favicon/manifest PWA.
+- `/saved_stories` - Diretório criado via backend de forma automática para guardar os assets `Base64` salvos na máquina de cada jogo (`.json`, `.png`, `.mp3`).
+- `server.js` - Servidor backend express minimalista.
+- `App.tsx` - O Coração da Engine de Jogo que orquestra a máquina de estados (_Menu ↔ StoryView ↔ History_).
+
+---
+
+## 🛡️ Licença e Informações
+
+Desenvolvido como um app gamificado para enriquecer a experiência de aprendizado da língua inglesa.
+Use a criatividade e divirta-se!
