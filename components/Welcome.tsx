@@ -9,6 +9,7 @@ import {
   deleteSave,
 } from "../services/storageService";
 import { generateAvatar } from "../services/aiService";
+import { getMediaUrl } from "../services/config";
 
 interface WelcomeProps {
   onStart: (theme: Theme, difficulty: Difficulty, mode: GameMode) => void;
@@ -287,7 +288,7 @@ const Welcome: React.FC<WelcomeProps> = ({
                 </div>
               ) : avatarUrl ? (
                 <img
-                  src={avatarUrl}
+                  src={getMediaUrl(avatarUrl)}
                   alt="Avatar"
                   className="w-full h-full object-cover"
                   style={{ imageRendering: "pixelated" }}
@@ -464,7 +465,7 @@ const Welcome: React.FC<WelcomeProps> = ({
           <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-quest-primary bg-gray-900">
             {userProfile.avatarUrl ? (
               <img
-                src={userProfile.avatarUrl}
+                src={getMediaUrl(userProfile.avatarUrl)}
                 className="w-full h-full object-cover"
                 style={{ imageRendering: "pixelated" }}
               />

@@ -1,4 +1,5 @@
 import { GameState } from "../types";
+import { getApiUrl } from "./config";
 
 export interface SaveSlot {
   id: string;
@@ -9,7 +10,7 @@ export interface SaveSlot {
 
 export const getSaves = async (): Promise<SaveSlot[]> => {
   try {
-    const response = await fetch("/api/stories");
+    const response = await fetch(getApiUrl("/api/stories"));
     if (!response.ok) throw new Error("Failed to fetch saves");
     return await response.json();
   } catch (e) {
@@ -20,7 +21,7 @@ export const getSaves = async (): Promise<SaveSlot[]> => {
 
 export const saveGame = async (state: GameState): Promise<string | null> => {
   try {
-    const response = await fetch("/api/stories", {
+    const response = await fetch(getApiUrl("/api/stories"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -39,7 +40,7 @@ export const saveGame = async (state: GameState): Promise<string | null> => {
 
 export const loadGame = async (id: string): Promise<GameState | null> => {
   try {
-    const response = await fetch(`/api/stories/${id}`);
+    const response = await fetch(getApiUrl(`/api/stories/${id}`));
     if (!response.ok) throw new Error("Failed to load game");
     const data = await response.json();
     return data.state;

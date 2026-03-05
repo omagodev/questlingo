@@ -1,5 +1,6 @@
 import React from "react";
 import { PlayerState } from "../types";
+import { getMediaUrl } from "../services/config";
 
 interface StatsBarProps {
   player: PlayerState;
@@ -24,7 +25,7 @@ const StatsBar: React.FC<StatsBarProps> = ({
         <div className="w-10 h-10 md:w-12 md:h-12 flex-shrink-0 rounded-full border-2 border-quest-accent bg-gray-900 overflow-hidden relative">
           {player.avatarUrl ? (
             <img
-              src={player.avatarUrl}
+              src={getMediaUrl(player.avatarUrl)}
               alt="Hero"
               className="w-full h-full object-cover"
               style={{ imageRendering: "pixelated" }}

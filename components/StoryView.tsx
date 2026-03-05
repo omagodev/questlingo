@@ -12,6 +12,7 @@ import {
 import { translateWord } from "../services/aiService";
 import WordTranslationModal from "./WordTranslationModal";
 import ImageLightbox from "./ImageLightbox";
+import { getMediaUrl } from "../services/config";
 
 interface ChapterNavInfo {
   current: number;
@@ -65,9 +66,9 @@ const StoryView: React.FC<StoryViewProps> = ({
   );
 
   // Fallback image if generation failed or is missing
-  const imageSrc =
-    segment.imageUrl ||
-    `https://picsum.photos/seed/${segment.imageKeyword}/800/400?grayscale&blur=2`;
+  const imageSrc = segment.imageUrl
+    ? getMediaUrl(segment.imageUrl)
+    : `https://picsum.photos/seed/${segment.imageKeyword}/800/400?grayscale&blur=2`;
 
   useEffect(() => {
     return () => {
@@ -115,7 +116,7 @@ const StoryView: React.FC<StoryViewProps> = ({
 
     if (segment.audioUrl) {
       // Play AI Voice synchronously
-      const audio = new Audio(segment.audioUrl);
+      const audio = new Audio(getMediaUrl(segment.audioUrl));
       audioRef.current = audio;
       setNarrationStatus("playing");
       audio.onended = () => {
@@ -167,7 +168,7 @@ const StoryView: React.FC<StoryViewProps> = ({
     if (settings.useAIVoice) {
       if (narrationStatus === "idle") {
         if (segment.audioUrl) {
-          audioRef.current = new Audio(segment.audioUrl);
+          audioRef.current = new Audio(getMediaUrl(segment.audioUrl));
           setNarrationStatus("playing");
           audioRef.current.onended = () => {
             setNarrationStatus("idle");

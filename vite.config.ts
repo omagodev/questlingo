@@ -10,10 +10,6 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3500,
       host: "0.0.0.0",
-      proxy: {
-        "/api": "http://localhost:3001",
-        "/saved_stories": "http://localhost:3001",
-      },
     },
     plugins: [
       react(),
